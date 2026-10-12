@@ -43,21 +43,24 @@ git push origin main
 6. Click **"Advanced settings"** to configure secrets.
 
 ### Step 3: Configure Secrets (Optional but Recommended)
-In the Streamlit Cloud dashboard under **App Settings > Secrets**, paste your configuration:
+In the Streamlit Cloud dashboard under **App Settings > Secrets**, paste your configuration (refer to [.streamlit/secrets.toml.example](.streamlit/secrets.toml.example)):
 
 ```toml
-# Optional: Connect to your hosted FastAPI backend (e.g. Railway, Render, Fly.io, or AWS)
+# Option A: Connect to your hosted FastAPI backend (e.g. Railway, Render, Fly.io, or AWS)
+API_BASE_URL = "https://your-api-domain.com"
 FASTAPI_URL = "https://your-api-domain.com"
 
-# Optional: Connect directly to a managed PostgreSQL + pgvector instance (Neon, Supabase, AWS RDS)
+# Option B: Connect directly to a managed PostgreSQL + pgvector instance (Neon, Supabase, AWS RDS)
 DATABASE_URL = "postgresql://postgres:your_password@your-db-host:5432/video_recommender"
 
-# Optional: YouTube Data API key for live video enrichment
+# Option C: Optional YouTube Data API v3 key for live enrichment
 YOUTUBE_API_KEY = "your-api-key"
 ```
 
+> **Note on System Dependencies**: Streamlit Cloud automatically reads [packages.txt](packages.txt) (`ffmpeg`, `libgl1`, `libglib2.0-0`) to install headless Linux dependencies for OpenCV and video/audio processing.
+
 ### Step 4: Deploy
-Click **"Deploy!"**. Streamlit Cloud installs `requirements.txt` and starts `streamlit_app.py`.
+Click **"Deploy!"**. Streamlit Cloud installs `requirements.txt` and `packages.txt` and launches `streamlit_app.py`.
 
 ---
 

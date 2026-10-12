@@ -238,6 +238,13 @@ class Settings(BaseModel):
 
     @property
     def DATABASE_URL(self) -> str:
+        env_url = os.getenv("DATABASE_URL")
+        if env_url:
+            if env_url.startswith("postgres://"):
+                return env_url.replace("postgres://", "postgresql+psycopg2://", 1)
+            elif env_url.startswith("postgresql://") and not env_url.startswith("postgresql+"):
+                return env_url.replace("postgresql://", "postgresql+psycopg2://", 1)
+            return env_url
         return (
             f"postgresql+psycopg2://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}"
             f"@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
@@ -245,6 +252,13 @@ class Settings(BaseModel):
 
     @property
     def ASYNC_DATABASE_URL(self) -> str:
+        env_url = os.getenv("DATABASE_URL")
+        if env_url:
+            if env_url.startswith("postgres://"):
+                return env_url.replace("postgres://", "postgresql+asyncpg://", 1)
+            elif env_url.startswith("postgresql://") and not env_url.startswith("postgresql+"):
+                return env_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+            return env_url
         return (
             f"postgresql+asyncpg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}"
             f"@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
