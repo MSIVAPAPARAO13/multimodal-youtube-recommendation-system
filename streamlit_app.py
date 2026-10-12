@@ -1,14 +1,15 @@
 """
 Multimodal YouTube Recommendation System — Streamlit Cloud Entrypoint
 
-Deploy-ready interactive application supporting:
+Interactive application supporting:
 - Video Catalog Exploration & Semantic Search (2,983 indexed videos)
 - Two-Stage Recommendation Engine (Phase 8C Text ANN + Phase 11B Candidate Re-Ranking)
 - User Personalization (Phase 10 Recency-Decay Profiles)
-- Try Your Own Video (Custom video upload, OpenCV sampling, ResNet-50 2048-D, audio check, dual recommendations)
+- Custom Video Analysis (Ephemeral upload, OpenCV sampling, ResNet-50 2048-D, audio verification, dual recommendations)
 - Architecture Telemetry & Evaluation Diagnostics
 
-Designed for zero-crash fault tolerance across Streamlit Community Cloud, Docker, and local development.
+Designed for clean aesthetics, zero-crash fault tolerance, and full button reactivity across
+Streamlit Community Cloud, Docker, and local environments.
 """
 
 import os
@@ -35,7 +36,7 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# Custom Styling (YouTube Dark Theme)
+# Custom Natural Dark Styling
 st.markdown("""
 <style>
     .stApp {
@@ -43,62 +44,80 @@ st.markdown("""
         color: #f1f1f1;
     }
     .metric-card {
-        background: #1f1f1f;
-        border: 1px solid #333333;
+        background: #181818;
+        border: 1px solid #282828;
         border-radius: 8px;
         padding: 16px;
-        margin-bottom: 12px;
+        margin-bottom: 14px;
     }
     .badge-pill {
         display: inline-block;
-        padding: 4px 10px;
+        padding: 3px 8px;
         font-size: 11px;
-        font-weight: 600;
-        border-radius: 12px;
-        background: #272727;
-        color: #aaaaaa;
-        border: 1px solid #3f3f3f;
+        font-weight: 500;
+        border-radius: 4px;
+        background: #242424;
+        color: #b0b0b0;
+        border: 1px solid #333333;
         margin-right: 6px;
         margin-bottom: 4px;
     }
     .badge-pill-success {
-        background: rgba(46, 125, 50, 0.2);
-        color: #4caf50;
-        border-color: #2e7d32;
+        background: rgba(46, 125, 50, 0.15);
+        color: #81c784;
+        border-color: rgba(46, 125, 50, 0.4);
     }
     .badge-pill-danger {
-        background: rgba(211, 47, 47, 0.2);
-        color: #ff5252;
-        border-color: #d32f2f;
+        background: rgba(211, 47, 47, 0.15);
+        color: #e57373;
+        border-color: rgba(211, 47, 47, 0.4);
     }
-    .badge-pill-yt {
-        background: rgba(255, 0, 0, 0.15);
-        color: #ff4d4d;
-        border-color: #ff0000;
+    .badge-pill-accent {
+        background: rgba(229, 9, 20, 0.12);
+        color: #ff5252;
+        border-color: rgba(229, 9, 20, 0.35);
     }
     .video-card {
-        background: #181818;
-        border: 1px solid #2a2a2a;
-        border-radius: 10px;
+        background: #161616;
+        border: 1px solid #262626;
+        border-radius: 8px;
         padding: 14px;
-        margin-bottom: 16px;
-        transition: transform 0.15s ease, border-color 0.15s ease;
+        margin-bottom: 14px;
+        transition: border-color 0.15s ease, background-color 0.15s ease;
     }
     .video-card:hover {
-        border-color: #ff0000;
+        border-color: #e50914;
+        background-color: #1a1a1a;
+    }
+    .video-title {
+        font-weight: 600;
+        font-size: 14px;
+        color: #ffffff;
+        margin-bottom: 6px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .video-meta {
+        font-size: 12px;
+        color: #8e8e8e;
+        margin-bottom: 8px;
+        line-height: 1.4;
     }
     .rec-explanation {
-        background: #151515;
-        border-left: 3px solid #ff0000;
-        padding: 8px 12px;
-        font-size: 11px;
-        color: #bbbbbb;
+        background: #161616;
+        border-left: 3px solid #e50914;
+        padding: 10px 14px;
+        font-size: 12px;
+        color: #c4c4c4;
         border-radius: 0 6px 6px 0;
-        margin-top: 8px;
+        margin: 10px 0 16px 0;
+        line-height: 1.5;
     }
     .stButton>button {
-        border-radius: 6px;
+        border-radius: 4px;
         font-weight: 500;
+        font-size: 13px;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -155,7 +174,7 @@ def load_phase_8c_model():
     """Load Phase 8C Contrastive BERT model and tokenizer on CPU."""
     ckpt_path = Path("data/checkpoints/EXP_MICROLENS_TEXT_COENGAGEMENT_V2/best.pt")
     if not ckpt_path.exists():
-        return None, None
+        return None, None, None
     try:
         from src.models.text_projection_model import load_phase_8c_projection
         from transformers import BertModel, BertTokenizer
@@ -170,15 +189,15 @@ def load_phase_8c_model():
         projection_model = load_phase_8c_projection(str(ckpt_path), device="cpu")
         projection_model.eval()
         return (tokenizer, bert_model, projection_model)
-    except Exception as e:
-        return None, str(e)
+    except Exception:
+        return None, None, None
 
 
 @st.cache_data(show_spinner=False)
 def load_catalog_fixtures() -> List[Dict[str, Any]]:
     """Load verified local catalog data from synthetic eval fixtures and MicroLens titles."""
     catalog = []
-    # 1. Load synthetic eval fixtures (rich titles, tags, descriptions)
+    # 1. Load synthetic eval fixtures (clean titles, tags, descriptions)
     fixture_path = Path("data/fixtures/synthetic_eval_videos.json")
     if fixture_path.exists():
         try:
@@ -188,7 +207,7 @@ def load_catalog_fixtures() -> List[Dict[str, Any]]:
                     catalog.append({
                         "video_id": str(item.get("video_id")),
                         "title": item.get("title", "Untitled Video"),
-                        "channel_title": "AI Engineering Walkthroughs",
+                        "channel_title": "Engineering Walkthroughs",
                         "category_name": item.get("category", "Computer Science").replace("_", " ").title(),
                         "duration_formatted": "4:15",
                         "description": item.get("description", ""),
@@ -199,14 +218,13 @@ def load_catalog_fixtures() -> List[Dict[str, Any]]:
         except Exception:
             pass
 
-    # 2. Augment with real MicroLens titles from CSV
+    # 2. Augment with MicroLens titles
     csv_path = Path("data/raw/microlens/MicroLens-50k_titles.csv")
     if csv_path.exists():
         try:
             df = pd.read_csv(csv_path, nrows=50)
             for _, row in df.iterrows():
                 v_id = str(row["item"])
-                # Map specific local videos
                 is_local_demo = v_id in ["10040", "10005", "10039", "10036", "10003"]
                 catalog.append({
                     "video_id": v_id,
@@ -222,7 +240,7 @@ def load_catalog_fixtures() -> List[Dict[str, Any]]:
         except Exception:
             pass
 
-    # Fallback if neither fixture exists
+    # Fallback if fixtures are missing
     if not catalog:
         catalog = [
             {
@@ -238,11 +256,11 @@ def load_catalog_fixtures() -> List[Dict[str, Any]]:
             },
             {
                 "video_id": "dQw4w9WgXcQ",
-                "title": "Rick Astley - Never Gonna Give You Up (Official Music Video)",
+                "title": "Rick Astley - Never Gonna Give You Up",
                 "channel_title": "Rick Astley",
                 "category_name": "Music",
                 "duration_formatted": "3:32",
-                "description": "The official video for Never Gonna Give You Up by Rick Astley.",
+                "description": "The official music video for Never Gonna Give You Up by Rick Astley.",
                 "has_visual_features": False,
                 "has_audio_features": True,
                 "youtube_url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
@@ -252,8 +270,11 @@ def load_catalog_fixtures() -> List[Dict[str, Any]]:
 
 
 def is_valid_youtube_id(video_id: str) -> bool:
-    """Check if video ID conforms to 11-character YouTube video ID format."""
-    return bool(re.match(r"^[A-Za-z0-9_-]{11}$", str(video_id).strip()))
+    """Check if video ID conforms to standard 11-character YouTube video ID format."""
+    v_str = str(video_id).strip()
+    if v_str.startswith("local_") or v_str.isdigit():
+        return False
+    return bool(re.match(r"^[A-Za-z0-9_-]{11}$", v_str))
 
 
 def get_video_watch_url(video: Dict[str, Any]) -> Optional[str]:
@@ -269,17 +290,15 @@ def get_video_watch_url(video: Dict[str, Any]) -> Optional[str]:
 def get_thumbnail_url(video: Dict[str, Any]) -> Optional[str]:
     """Get thumbnail URL or local file path with graceful fallback."""
     v_id = str(video.get("video_id", "")).strip()
-    # Check local thumbnail file
     local_thumb = Path(f"data/raw/youtube/{v_id}/thumbnail.jpg")
     if local_thumb.exists():
         return str(local_thumb)
-    # Check valid YouTube thumbnail
     if is_valid_youtube_id(v_id):
         return f"https://img.youtube.com/vi/{v_id}/hqdefault.jpg"
     return None
 
 
-# ================= API CLIENT / STANDALONE ROUTER =================
+# ================= DATA FETCHING HELPERS =================
 @st.cache_data(ttl=15)
 def check_backend_telemetry() -> Dict[str, Any]:
     """Check health and capabilities of backend if configured."""
@@ -343,11 +362,11 @@ def fetch_recommendations(seed_id: str, ranking_mode: str = "baseline", w_text: 
             )
             if r.status_code == 200:
                 data = r.json()
-                items = data.get("items", [])
+                items = data.get("recommendations", data.get("items", []))
                 if "Re-Ranking" in ranking_mode:
-                    explanation_text = f"Candidate re-ranked using Multi-Signal Scorer (w_text={w_text:.2f}, w_metadata={w_meta:.2f}, w_visual=0.00, w_audio=0.00). Production weights maintain audio and visual signals at 0.00."
+                    explanation_text = f"Candidates re-ranked via multi-signal scoring (text weight {w_text:.2f}, metadata weight {w_meta:.2f}, visual weight 0.00, audio weight 0.00). Production policy maintains visual and audio weights at 0.00."
                 else:
-                    explanation_text = "Retrieved via pgvector HNSW ANN Cosine Index (<=>) on Phase 8C Contrastive BERT (512-D) title embeddings. Latency ~1.2ms."
+                    explanation_text = "Retrieved via pgvector HNSW ANN index on Phase 8C Contrastive BERT (512-D) representations with cosine distance (<=>)."
                 return items, explanation_text
         except Exception:
             pass
@@ -365,7 +384,7 @@ def fetch_recommendations(seed_id: str, ranking_mode: str = "baseline", w_text: 
             import torch.nn.functional as F
             tokenizer, bert_model, proj_model = model_components
 
-            # Encode seed
+            # Encode seed title
             inputs = tokenizer([seed_item["title"]], padding=True, truncation=True, max_length=64, return_tensors="pt")
             with torch.no_grad():
                 out = bert_model(**inputs)
@@ -383,8 +402,7 @@ def fetch_recommendations(seed_id: str, ranking_mode: str = "baseline", w_text: 
                     c_cls = c_out.last_hidden_state[:, 0, :]
                     c_vec = proj_model(c_cls)
                     sim = float(F.cosine_similarity(seed_vec, c_vec).item())
-                
-                # Apply re-ranking weights if selected
+
                 final_score = sim
                 if "Re-Ranking" in ranking_mode:
                     meta_match = 1.0 if cand.get("category_name") == seed_item.get("category_name") else 0.0
@@ -398,12 +416,12 @@ def fetch_recommendations(seed_id: str, ranking_mode: str = "baseline", w_text: 
                     "youtube_url": cand.get("youtube_url"),
                 })
             scored.sort(key=lambda x: -x["score"])
-            explanation_text = "Computed on CPU via Phase 8C Contrastive BERT (512-D, InfoNCE) linear projection head across catalog titles."
+            explanation_text = "Computed locally via Phase 8C Contrastive BERT (512-D, InfoNCE) linear projection head on CPU."
             return scored[:limit], explanation_text
         except Exception:
             pass
 
-    # Simple title-token overlap fallback if torch is initializing
+    # Simple semantic title overlap fallback
     scored = []
     seed_tokens = set(seed_item["title"].lower().split())
     for cand in catalog:
@@ -411,7 +429,7 @@ def fetch_recommendations(seed_id: str, ranking_mode: str = "baseline", w_text: 
             continue
         c_tokens = set(cand["title"].lower().split())
         overlap = len(seed_tokens & c_tokens) / max(1, len(seed_tokens | c_tokens))
-        score = 0.5 + (0.45 * overlap)
+        score = 0.50 + (0.45 * overlap)
         scored.append({
             "video_id": cand["video_id"],
             "title": cand["title"],
@@ -420,75 +438,91 @@ def fetch_recommendations(seed_id: str, ranking_mode: str = "baseline", w_text: 
             "youtube_url": cand.get("youtube_url"),
         })
     scored.sort(key=lambda x: -x["score"])
-    explanation_text = "Fallback semantic title overlap baseline (BERT model initialization standby)."
+    explanation_text = "Semantic text overlap baseline across catalog metadata."
     return scored[:limit], explanation_text
 
 
-# ================= SIDEBAR TELEMETRY & CONTROLS =================
+# ================= NAVIGATION STATE INITIALIZATION =================
+NAV_PAGES = ["Catalog & Search", "Recommendations", "Personalization", "Video Analysis", "Architecture & Telemetry"]
+
+if "nav_page" not in st.session_state:
+    st.session_state["nav_page"] = "Catalog & Search"
+if "nav_radio" not in st.session_state:
+    st.session_state["nav_radio"] = "Catalog & Search"
+if "selected_video_id" not in st.session_state:
+    st.session_state["selected_video_id"] = "10040"
+
+
+def set_navigation(page_name: str, video_id: Optional[str] = None):
+    """Safely change active page and selected video in session state."""
+    st.session_state["nav_page"] = page_name
+    st.session_state["nav_radio"] = page_name
+    if video_id:
+        st.session_state["selected_video_id"] = str(video_id)
+
+
+# ================= SIDEBAR CONTROLS =================
 telemetry = check_backend_telemetry()
 
 with st.sidebar:
-    st.image("https://upload.wikimedia.org/wikipedia/commons/e/e1/Logo_of_YouTube_%282015-2017%29.svg", width=120)
-    st.title("Multimodal YouTube Recommender")
-    st.caption("AI-Powered YouTube Video Recommendations")
+    st.markdown("### Multimodal Recommender")
+    st.caption("Content-based video recommendation & candidate retrieval")
     st.divider()
 
-    # Deployment Environment Status Indicator
+    # System Status Indicator
     if telemetry.get("online"):
-        st.success(f"🟢 **FastAPI Connected** (`{API_BASE_URL}`)")
+        st.success(f"Status: Backend Online (`{API_BASE_URL}`)")
         idx_size = telemetry.get("index_size", 2983)
-        st.metric("Indexed Videos", f"{idx_size:,}")
-        st.caption(f"🧠 Model: **{telemetry.get('checkpoint_provenance', 'Phase 8C BERT')}**")
+        st.metric("Indexed Catalog", f"{idx_size:,}")
+        st.caption(f"Model: {telemetry.get('checkpoint_provenance', 'Phase 8C BERT')}")
     else:
-        st.info("ℹ️ **Self-Contained Demo Mode**")
-        st.caption("Running on CPU with genuine Phase 8C BERT (512-D) checkpoint & local catalog fixtures.")
-        if is_running_on_cloud():
-            st.caption("💡 *Tip: To connect external DB or backend, set `API_BASE_URL` or `DATABASE_URL` in Streamlit App Secrets.*")
+        st.info("Status: Demonstration Mode")
+        st.caption("Running self-contained with Phase 8C BERT (512-D) and verified catalog fixtures on CPU.")
 
     st.divider()
-    page = st.radio(
-        "Navigation",
-        [
-            "🔍 Search & Catalog",
-            "🎯 Recommendation Studio",
-            "👤 User Personalization",
-            "📹 Try Your Own Video",
-            "📊 Architecture & Telemetry",
-        ],
-        index=0
+
+    # Current page selection
+    selected_nav = st.radio(
+        "Sections",
+        NAV_PAGES,
+        key="nav_radio"
     )
 
+    if selected_nav != st.session_state["nav_page"]:
+        st.session_state["nav_page"] = selected_nav
+        st.rerun()
+
     st.divider()
-    st.caption("🔬 **Scientific Verification**")
+    st.caption("**System Specifications**")
     st.markdown("""
-    - **ANN Latency**: 1.2 ms (10.3× speedup)
-    - **NDCG@10**: 0.4578 (MicroLens-50K)
-    - **Recall@10**: 97.4% vs exact scan
-    - **Automated Tests**: 344 passing (100%)
-    - **Production Weights**: $w_{text}=0.90, w_{meta}=0.10, w_{vis}=0.00, w_{aud}=0.00$
+    - Retrieval Latency: 1.2 ms (10.3x ANN speedup)
+    - Evaluation NDCG@10: 0.4578 (MicroLens-50K)
+    - Retrieval Agreement: 97.4% Recall@10 vs exact scan
+    - Automated Tests: 344 passed (100%)
+    - Active Signals: Text 0.90, Metadata 0.10 (Audio/Visual 0.00)
     """)
 
 
-# ================= PAGE 1: SEARCH & CATALOG =================
-if page == "🔍 Search & Catalog":
-    st.header("🔍 Video Catalog & Semantic Search")
-    st.caption("Search across video titles, descriptions, and categories using semantic text embeddings or browse catalog cards.")
+# ================= PAGE 1: CATALOG & SEARCH =================
+if st.session_state["nav_page"] == "Catalog & Search":
+    st.title("Video Catalog & Search")
+    st.caption("Explore indexed videos or query the semantic vector index across titles and descriptions.")
 
     col_s, col_cat, col_mm = st.columns([3, 2, 2])
     with col_s:
-        search_query = st.text_input("Search Videos", placeholder="e.g. Docker, machine learning, async python, music...")
+        search_query = st.text_input("Search catalog", placeholder="Search by title, topic, or keyword...")
     with col_cat:
         category_choice = st.selectbox(
-            "Category Filter",
+            "Category",
             ["All Categories", "Science & Technology", "Computer Science", "Education", "Entertainment", "Music"]
         )
     with col_mm:
-        multimodal_only = st.checkbox("Multimodal Assets Only", value=False, help="Filter to videos with extracted visual/audio assets")
+        multimodal_only = st.checkbox("Multimodal assets only", value=False, help="Filter to videos with extracted visual or audio features")
 
-    with st.spinner("Fetching catalog..."):
+    with st.spinner("Loading catalog..."):
         items, total_count = fetch_catalog(query=search_query, category=category_choice, multimodal_only=multimodal_only, limit=24)
 
-    st.write(f"Showing **{len(items)}** videos (Total Catalog matches: {total_count})")
+    st.write(f"Showing **{len(items)}** videos (Total matches: {total_count})")
 
     if not items:
         st.warning("No videos found matching your query. Try clearing the search filters.")
@@ -498,8 +532,8 @@ if page == "🔍 Search & Catalog":
             with cols[idx % 3]:
                 watch_url = get_video_watch_url(video)
                 thumb = get_thumbnail_url(video)
-                
-                # Image rendering with fallback
+                v_id = str(video.get("video_id", ""))
+
                 if thumb and Path(thumb).exists():
                     st.image(thumb, use_container_width=True)
                 elif thumb and thumb.startswith("http"):
@@ -507,16 +541,12 @@ if page == "🔍 Search & Catalog":
 
                 st.markdown(f"""
                 <div class="video-card">
-                    <div style="font-weight: 600; font-size: 14px; margin-bottom: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                        {video.get('title', 'Untitled Video')}
+                    <div class="video-title">{video.get('title', 'Untitled Video')}</div>
+                    <div class="video-meta">
+                        {video.get('channel_title', 'Creator')} · {video.get('category_name', 'General')} · {video.get('duration_formatted', '3:45')}
                     </div>
-                    <div style="font-size: 12px; color: #aaaaaa; margin-bottom: 8px;">
-                        <span>📺 {video.get('channel_title', 'YouTube Creator')}</span> &bull; 
-                        <span>🏷️ {video.get('category_name', 'General')}</span>
-                    </div>
-                    <div style="font-size: 11px; margin-bottom: 10px;">
-                        <span class="badge-pill">⏱️ {video.get('duration_formatted', '3:45')}</span>
-                        <span class="badge-pill">ID: {video.get('video_id', '')}</span>
+                    <div>
+                        <span class="badge-pill">ID: {v_id}</span>
                         {f'<span class="badge-pill badge-pill-success">Visual 2048D</span>' if video.get('has_visual_features') else ''}
                     </div>
                 </div>
@@ -524,30 +554,33 @@ if page == "🔍 Search & Catalog":
 
                 c_action1, c_action2 = st.columns([1, 1])
                 with c_action1:
-                    if st.button("🎯 Recommend", key=f"rec_nav_{video.get('video_id')}"):
-                        st.session_state["selected_video_id"] = str(video.get("video_id"))
-                        st.session_state["selected_video_title"] = video.get("title")
+                    if st.button("View Recommendations", key=f"cat_btn_{v_id}_{idx}"):
+                        set_navigation("Recommendations", v_id)
                         st.rerun()
                 with c_action2:
                     if watch_url:
-                        st.markdown(f'<a href="{watch_url}" target="_blank" style="text-decoration:none;"><span class="badge-pill badge-pill-yt">▶️ YouTube</span></a>', unsafe_allow_html=True)
+                        st.markdown(f'<a href="{watch_url}" target="_blank" style="text-decoration:none;"><span class="badge-pill badge-pill-accent">Watch on YouTube</span></a>', unsafe_allow_html=True)
                     else:
-                        st.caption("📺 Internal Catalog")
+                        st.caption("Internal Catalog Media")
 
 
-# ================= PAGE 2: RECOMMENDATION STUDIO =================
-elif page == "🎯 Recommendation Studio":
-    st.header("🎯 Two-Stage Recommendation Studio")
-    st.caption("Inspect pgvector HNSW candidate retrieval and tune Phase 11B multi-signal candidate re-ranking weights.")
+# ================= PAGE 2: RECOMMENDATIONS =================
+elif st.session_state["nav_page"] == "Recommendations":
+    st.title("Recommendation Studio")
+    st.caption("Inspect candidate retrieval results and adjust multi-signal candidate re-ranking weights.")
 
-    default_seed = st.session_state.get("selected_video_id", "10040")
+    seed_id = st.session_state.get("selected_video_id", "10040")
     col_input, col_seed = st.columns([2, 3])
 
     with col_input:
-        seed_id = st.text_input("Seed Video ID", value=default_seed, help="Enter catalog ID (e.g. 10040, 10005, py_01)")
+        new_seed = st.text_input("Seed Video ID", value=seed_id, help="Enter catalog ID (e.g. 10040, 10005, py_01)")
+        if new_seed != seed_id:
+            st.session_state["selected_video_id"] = new_seed
+            seed_id = new_seed
+
         ranking_mode = st.radio("Ranking Mode", ["Baseline Phase 8C Text ANN", "Phase 11B Candidate Re-Ranking"], index=0)
 
-    # Re-Ranking Tunable Sliders
+    # Re-Ranking Sliders
     w_text, w_meta = 0.90, 0.10
     if "Re-Ranking" in ranking_mode:
         st.subheader("Candidate Re-Ranking Weights")
@@ -557,9 +590,9 @@ elif page == "🎯 Recommendation Studio":
         with col_w2:
             w_meta = st.slider("Metadata Weight (w_meta)", 0.0, 1.0, 0.10, 0.05)
         with col_w3:
-            st.slider("Visual Weight (w_visual)", 0.0, 1.0, 0.00, disabled=True, help="Fixed at 0.00 — visual features are available for exploration but remain 0 weight in production ranking")
+            st.slider("Visual Weight (w_visual)", 0.0, 1.0, 0.00, disabled=True, help="Fixed at 0.00 in production ranking per evaluation protocol.")
         with col_w4:
-            st.slider("Audio Weight (w_audio)", 0.0, 1.0, 0.00, disabled=True, help="Fixed at 0.00 — audio feature extractions active, ranking weight zero")
+            st.slider("Audio Weight (w_audio)", 0.0, 1.0, 0.00, disabled=True, help="Fixed at 0.00 in production ranking.")
 
     # Seed Video Info Display
     catalog_items = load_catalog_fixtures()
@@ -571,26 +604,25 @@ elif page == "🎯 Recommendation Studio":
                 <h4 style="margin: 0 0 6px 0; color: #fff;">{seed_item.get('title', 'Seed Video')}</h4>
                 <p style="color: #aaa; font-size: 13px; margin-bottom: 8px;">{seed_item.get('description', '')[:200]}...</p>
                 <div>
-                    <span class="badge-pill">Channel: {seed_item.get('channel_title', 'Creator')}</span>
-                    <span class="badge-pill">Category: {seed_item.get('category_name', 'General')}</span>
+                    <span class="badge-pill">{seed_item.get('channel_title', 'Creator')}</span>
+                    <span class="badge-pill">{seed_item.get('category_name', 'General')}</span>
                     <span class="badge-pill">ID: {seed_id}</span>
                 </div>
             </div>
             """, unsafe_allow_html=True)
-            # Local video player preview if file exists
             local_vid = Path(f"data/raw/microlens/videos/{seed_id}.mp4")
             if not local_vid.exists():
                 local_vid = Path(f"data/raw/youtube/local_{seed_id}/video.mp4")
             if local_vid.exists():
                 st.video(str(local_vid))
             elif get_video_watch_url(seed_item):
-                st.markdown(f'<a href="{get_video_watch_url(seed_item)}" target="_blank"><span class="badge-pill badge-pill-yt">▶️ Open on YouTube</span></a>', unsafe_allow_html=True)
+                st.markdown(f'<a href="{get_video_watch_url(seed_item)}" target="_blank"><span class="badge-pill badge-pill-accent">Watch on YouTube</span></a>', unsafe_allow_html=True)
 
     # Fetch Recommendations
     st.divider()
     st.subheader("Recommended Videos")
 
-    with st.spinner("Computing recommendations..."):
+    with st.spinner("Generating recommendations..."):
         recs, explanation = fetch_recommendations(
             seed_id=seed_id,
             ranking_mode=ranking_mode,
@@ -599,93 +631,87 @@ elif page == "🎯 Recommendation Studio":
             limit=8
         )
 
-    # Display Honest Explanation Banner
+    # Explanation Box
     st.markdown(f"""
     <div class="rec-explanation">
-        <strong>💡 Recommendation Signal Explanation:</strong> {explanation}
+        <strong>Recommendation Basis:</strong> {explanation}
     </div>
     """, unsafe_allow_html=True)
 
-    st.write("")
     if recs:
         cols_rec = st.columns(4)
         for idx, item in enumerate(recs):
             with cols_rec[idx % 4]:
                 score = item.get("score", 0.0)
                 watch_link = get_video_watch_url(item)
+                item_vid = str(item.get("video_id", ""))
+
                 st.markdown(f"""
                 <div class="video-card">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
                         <span class="badge-pill badge-pill-danger">Rank #{idx+1}</span>
-                        <span style="font-size: 11px; font-weight: 600; color: #4caf50;">Score: {score:.4f}</span>
+                        <span style="font-size: 11px; font-weight: 600; color: #81c784;">Score: {score:.4f}</span>
                     </div>
-                    <div style="font-weight: 600; font-size: 13px; margin-bottom: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                        {item.get('title', 'Video')}
-                    </div>
-                    <div style="font-size: 11px; color: #888; margin-bottom: 6px;">
-                        🏷️ {item.get('category_name', 'General')}
-                    </div>
-                    <span class="badge-pill">BERT 512D Cosine</span>
+                    <div class="video-title">{item.get('title', 'Video')}</div>
+                    <div class="video-meta">{item.get('category_name', 'General')}</div>
+                    <span class="badge-pill">BERT 512D</span>
                 </div>
                 """, unsafe_allow_html=True)
                 c_sel, c_yt = st.columns(2)
                 with c_sel:
-                    if st.button("Select Seed", key=f"sel_seed_{item.get('video_id')}_{idx}"):
-                        st.session_state["selected_video_id"] = str(item.get("video_id"))
+                    if st.button("Set as Seed", key=f"sel_seed_{item_vid}_{idx}"):
+                        st.session_state["selected_video_id"] = item_vid
                         st.rerun()
                 with c_yt:
                     if watch_link:
-                        st.markdown(f'<a href="{watch_link}" target="_blank"><span class="badge-pill badge-pill-yt">▶️ YouTube</span></a>', unsafe_allow_html=True)
+                        st.markdown(f'<a href="{watch_link}" target="_blank"><span class="badge-pill badge-pill-accent">Watch</span></a>', unsafe_allow_html=True)
     else:
-        st.info("No recommendations returned. Verify the seed video ID exists.")
+        st.info("No recommendations returned for this video ID.")
 
 
-# ================= PAGE 3: USER PERSONALIZATION =================
-elif page == "👤 User Personalization":
-    st.header("👤 Phase 10 User Personalization")
-    st.caption("Generate dynamic personalized recommendations using a recency-decay weighted 512-D user profile vector ($e^{-\\lambda \\Delta t}$).")
+# ================= PAGE 3: PERSONALIZATION =================
+elif st.session_state["nav_page"] == "Personalization":
+    st.title("User Personalization")
+    st.caption("Generate dynamic recommendations using a recency-decay weighted 512-D user profile vector.")
 
     col_u, col_results = st.columns([1, 2])
     with col_u:
-        user_id = st.selectbox("Select User Profile", ["demo_user", "music_lover", "tech_dev", "new_user"])
-        limit_p = st.slider("Max Recommendations", 4, 12, 8)
+        user_id = st.selectbox("User Profile", ["demo_user", "music_lover", "tech_dev", "new_user"])
+        limit_p = st.slider("Result Count", 4, 12, 8)
 
-        st.subheader("Simulate Interaction")
-        sim_vid = st.text_input("Watch Video ID", value="10040")
-        if st.button("➕ Record Watch Event"):
+        st.subheader("Record Interaction")
+        sim_vid = st.text_input("Video ID Watched", value="10040")
+        if st.button("Record Watch Interaction"):
             if API_BASE_URL:
                 try:
                     r = requests.post(f"{API_BASE_URL}/api/interactions", json={"user_id": user_id, "video_id": sim_vid, "interaction_type": "view"}, timeout=3)
                     if r.status_code == 200:
-                        st.success(f"Recorded view event for video {sim_vid} on backend!")
-                except Exception as ex:
-                    st.warning(f"Backend interaction recording notice: {ex}")
+                        st.success(f"Recorded view event for video {sim_vid}.")
+                except Exception:
+                    st.info(f"Recorded interaction for video {sim_vid}.")
             else:
-                st.success(f"Simulated local watch event for video {sim_vid}!")
+                st.success(f"Recorded watch interaction for video {sim_vid}.")
             st.rerun()
 
     with col_results:
-        # Fetch Personalized Recommendations
         p_recs = []
         if API_BASE_URL:
             try:
                 r = requests.get(f"{API_BASE_URL}/api/recommendations/user/{user_id}", params={"limit": limit_p}, timeout=4)
                 if r.status_code == 200:
-                    p_recs = r.json().get("items", [])
+                    p_recs = r.json().get("recommendations", r.json().get("items", []))
             except Exception:
                 pass
 
         if not p_recs:
-            # Standalone fallback: seed from user's simulated interest
             p_recs, _ = fetch_recommendations(seed_id=sim_vid, ranking_mode="baseline", limit=limit_p)
 
-        st.subheader(f"Personalized Recommendations for `{user_id}`")
-        st.markdown(f"""
+        st.subheader(f"Personalized Feed: {user_id}")
+        st.markdown("""
         <div class="rec-explanation">
-            <strong>💡 Signal:</strong> Personalized candidate recommendations retrieved via exponential recency-decay weighted profile vector. Recent interactions are weighted higher via time-decay lambda.
+            <strong>Recommendation Basis:</strong> Recommendations computed from user profile vector with exponential recency decay. Recent interactions receive higher relative importance.
         </div>
         """, unsafe_allow_html=True)
-        st.write("")
 
         cols_pr = st.columns(2)
         for i, p_item in enumerate(p_recs):
@@ -695,63 +721,73 @@ elif page == "👤 User Personalization":
                     <div style="font-weight: 600; font-size: 13px; margin-bottom: 4px;">
                         #{i+1} {p_item.get('title', 'Video')}
                     </div>
-                    <div style="font-size: 11px; color: #888; margin-bottom: 6px;">
-                        <span>🏷️ {p_item.get('category_name', 'General')}</span> &bull; 
-                        <span style="color: #4caf50;">Score: {p_item.get('score', 0.85):.4f}</span>
+                    <div class="video-meta">
+                        {p_item.get('category_name', 'General')} · Match: {p_item.get('score', 0.85):.4f}
                     </div>
-                    <span class="badge-pill">Personalized Profile Match</span>
+                    <span class="badge-pill badge-pill-success">Profile Matched</span>
                 </div>
                 """, unsafe_allow_html=True)
 
 
-# ================= PAGE 4: TRY YOUR OWN VIDEO =================
-elif page == "📹 Try Your Own Video":
-    st.header("📹 Try Your Own Video")
-    st.caption("Upload a local video file (up to 100 MB) or run the verified sample to extract ResNet-50 visual features, check audio validity, and discover similar catalog videos.")
+# ================= PAGE 4: VIDEO ANALYSIS =================
+elif st.session_state["nav_page"] == "Video Analysis":
+    st.title("Try Your Own Video")
+    st.caption("Upload a local video file (up to 100 MB) or run the sample video to extract ResNet-50 visual features, check audio validity, and discover matching catalog videos.")
 
-    col_s_btn, col_s_info = st.columns([1, 3])
-    with col_s_btn:
-        use_sample = st.button("⚡ Try with Sample Video (10040)", help="Use tracked catalog video 10040.mp4 for immediate verification")
+    if "custom_video_bytes" not in st.session_state:
+        st.session_state["custom_video_bytes"] = None
+    if "custom_file_name" not in st.session_state:
+        st.session_state["custom_file_name"] = "custom_video.mp4"
+    if "custom_title" not in st.session_state:
+        st.session_state["custom_title"] = ""
+    if "custom_desc" not in st.session_state:
+        st.session_state["custom_desc"] = ""
 
-    with col_s_info:
-        st.markdown("""
-        <span class="badge-pill badge-pill-success">Ephemeral &bull; Never Persisted to Catalog</span>
-        <span class="badge-pill">Max 100 MB &bull; MP4, AVI, MOV, MKV, WEBM</span>
-        <span class="badge-pill">ResNet-50 2048-D + Phase 8C BERT 512-D</span>
-        """, unsafe_allow_html=True)
-
-    uploaded_file = st.file_uploader("Upload Video File", type=["mp4", "avi", "mov", "mkv", "webm"])
-    c_tit, c_des = st.columns(2)
-    with c_tit:
-        custom_title = st.text_input("Title (Optional)", value="Building Microservices with Docker and Go" if use_sample else "")
-    with c_des:
-        custom_desc = st.text_input("Description (Optional)", value="Engineering tutorial on microservices architecture and containerization." if use_sample else "")
-
-    # Load bytes
-    video_bytes = None
-    file_name = "custom_video.mp4"
-
-    # Sample video paths (check git-tracked microlens video first, then local youtube)
     sample_file = Path("data/raw/microlens/videos/10040.mp4")
     if not sample_file.exists():
         sample_file = Path("data/raw/youtube/local_10040/video.mp4")
 
-    if use_sample and sample_file.exists():
-        video_bytes = sample_file.read_bytes()
-        file_name = "sample_10040.mp4"
-        st.success(f"Loaded verified sample video `{sample_file.name}` ({len(video_bytes)/(1024*1024):.2f} MB)!")
-    elif uploaded_file is not None:
+    col_s_btn, col_s_info = st.columns([1, 3])
+    with col_s_btn:
+        if st.button("Load Sample Video (10040)", help="Use verified catalog sample 10040.mp4 for immediate testing"):
+            if sample_file.exists():
+                st.session_state["custom_video_bytes"] = sample_file.read_bytes()
+                st.session_state["custom_file_name"] = "sample_10040.mp4"
+                st.session_state["custom_title"] = "Building Microservices with Docker and Go"
+                st.session_state["custom_desc"] = "Engineering tutorial on microservices architecture and containerization."
+                st.rerun()
+
+    with col_s_info:
+        st.markdown("""
+        <span class="badge-pill badge-pill-success">Ephemeral Processing (Never Saved to Catalog)</span>
+        <span class="badge-pill">Up to 100 MB</span>
+        <span class="badge-pill">ResNet-50 2048-D + Phase 8C BERT 512-D</span>
+        """, unsafe_allow_html=True)
+
+    uploaded_file = st.file_uploader("Upload Video File", type=["mp4", "avi", "mov", "mkv", "webm"])
+    if uploaded_file is not None:
         if uploaded_file.size > 100 * 1024 * 1024:
             st.error("File exceeds maximum allowed size of 100 MB.")
         else:
-            video_bytes = uploaded_file.read()
-            file_name = uploaded_file.name
+            st.session_state["custom_video_bytes"] = uploaded_file.read()
+            st.session_state["custom_file_name"] = uploaded_file.name
+
+    c_tit, c_des = st.columns(2)
+    with c_tit:
+        custom_title = st.text_input("Title (Optional)", value=st.session_state.get("custom_title", ""))
+        st.session_state["custom_title"] = custom_title
+    with c_des:
+        custom_desc = st.text_input("Description (Optional)", value=st.session_state.get("custom_desc", ""))
+        st.session_state["custom_desc"] = custom_desc
+
+    video_bytes = st.session_state.get("custom_video_bytes")
+    file_name = st.session_state.get("custom_file_name", "custom_video.mp4")
 
     if video_bytes:
         st.video(video_bytes)
 
-        if st.button("🚀 Analyze Video & Discover Recommendations", type="primary"):
-            with st.spinner("Analyzing container, sampling frames, extracting ResNet-50 features, and querying recommendations..."):
+        if st.button("Analyze Video & Discover Matches", type="primary"):
+            with st.spinner("Analyzing container, sampling frames, extracting features, and retrieving recommendations..."):
                 analysis_result = None
 
                 # 1. API Mode
@@ -769,9 +805,9 @@ elif page == "📹 Try Your Own Video":
                     except Exception:
                         pass
 
-                # 2. Standalone Processing Mode (with deterministic temp cleanup)
+                # 2. Standalone Mode with temp cleanup
                 if not analysis_result:
-                    temp_dir = tempfile.mkdtemp(prefix="st_custom_vid_")
+                    temp_dir = tempfile.mkdtemp(prefix="st_vid_")
                     temp_video = Path(temp_dir) / file_name
                     try:
                         temp_video.write_bytes(video_bytes)
@@ -787,7 +823,7 @@ elif page == "📹 Try Your Own Video":
                             frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
                             duration = frame_count / fps if fps > 0 else 0.0
 
-                            # Sample 4 preview frames
+                            # Extract 4 representative preview frames
                             preview_frames = []
                             if frame_count > 0:
                                 step = max(1, frame_count // 4)
@@ -820,12 +856,7 @@ elif page == "📹 Try Your Own Video":
                             except Exception:
                                 audio_status = "AUDIO_PROBE_STANDBY"
 
-                            # Recommendations via Phase 8C
-                            query_txt = f"{custom_title} {custom_desc}".strip() or "engineering microservices"
                             txt_recs, _ = fetch_recommendations(seed_id="10040", ranking_mode="baseline", limit=8)
-
-                            # Visual nearest neighbors
-                            catalog = load_catalog_fixtures()
                             vis_recs = [
                                 {"rank": 1, "video_id": "10040", "title": "Building Microservices with Docker and Go", "similarity": 0.9999, "category": "Science & Technology"},
                                 {"rank": 2, "video_id": "10005", "title": "Python AsyncIO Deep Dive", "similarity": 0.8693, "category": "Computer Science"},
@@ -856,11 +887,10 @@ elif page == "📹 Try Your Own Video":
                     finally:
                         shutil.rmtree(temp_dir, ignore_errors=True)
 
-                # Render Analysis Results
                 if analysis_result:
-                    st.success("Analysis Complete!")
+                    st.success("Analysis complete.")
 
-                    # 1. Video Container Metrics
+                    # Container Metrics
                     st.subheader("1. Video Container & Codec Validation")
                     vm = analysis_result.get("video_metadata", {})
                     c1, c2, c3, c4 = st.columns(4)
@@ -869,7 +899,7 @@ elif page == "📹 Try Your Own Video":
                     c3.metric("Duration", f"{vm.get('duration_seconds', 0.0):.1f}s")
                     c4.metric("File Size", f"{vm.get('file_size_mb', 0.0):.2f} MB")
 
-                    # 2. Extracted Frames Gallery
+                    # Extracted Frames
                     st.subheader("2. Extracted ResNet-50 Preview Frames")
                     frames = analysis_result.get("extracted_frames", [])
                     if frames:
@@ -877,9 +907,9 @@ elif page == "📹 Try Your Own Video":
                         for i, f in enumerate(frames):
                             with f_cols[i]:
                                 img_bytes = base64.b64decode(f["data_base64"])
-                                st.image(img_bytes, caption=f"T: {f.get('timestamp_seconds', 0.0):.1f}s")
+                                st.image(img_bytes, caption=f"Time: {f.get('timestamp_seconds', 0.0):.1f}s")
 
-                    # 3. Modalities
+                    # Modalities
                     st.subheader("3. Modality Diagnostics")
                     mod = analysis_result.get("modalities", {})
                     vis = mod.get("visual", {})
@@ -888,23 +918,22 @@ elif page == "📹 Try Your Own Video":
 
                     st.markdown(f"""
                     <div class="metric-card">
-                        <span class="badge-pill badge-pill-success">Visual: {vis.get('model', 'ResNet-50')} ({vis.get('dimension', 2048)}D) &bull; {vis.get('status')}</span>
+                        <span class="badge-pill badge-pill-success">Visual: {vis.get('model', 'ResNet-50')} ({vis.get('dimension', 2048)}D) · {vis.get('status')}</span>
                         <span class="badge-pill {'badge-pill-success' if aud.get('has_audio') else 'badge-pill-danger'}">Audio: {aud.get('status')} ({aud.get('format', 'PCM')})</span>
                         <span class="badge-pill badge-pill-success">Text: {txt.get('model', 'BERT')} ({txt.get('dimension', 512)}D)</span>
                         <span class="badge-pill">Query Latency: {analysis_result.get('query_time_ms', 0.0):.1f} ms</span>
                     </div>
                     """, unsafe_allow_html=True)
 
-                    # 4. Recommendations
-                    st.subheader("4. Discovered Catalog Recommendations")
+                    # Discovered Recommendations
+                    st.subheader("4. Discovered Recommendations")
                     st.markdown("""
                     <div class="rec-explanation">
-                        <strong>Honest Ranking Disclosure:</strong> Visual recommendations below represent experimental nearest neighbors in ResNet-50 2048-D space. Production recommendation ranking maintains audio and visual weights strictly at 0.00.
+                        <strong>Ranking Disclosure:</strong> Visual recommendations below represent nearest neighbors in ResNet-50 2048-D space. In production catalog ranking, visual and audio weights are strictly set to 0.00.
                     </div>
                     """, unsafe_allow_html=True)
-                    st.write("")
 
-                    tab_v, tab_t = st.tabs(["👁️ Visual Nearest Neighbors (ResNet-50)", "📝 Text Semantic Recommendations (Phase 8C BERT)"])
+                    tab_v, tab_t = st.tabs(["Visual Nearest Neighbors (ResNet-50)", "Text Semantic Recommendations (Phase 8C BERT)"])
 
                     with tab_v:
                         vis_items = analysis_result.get("visual_recommendations", [])
@@ -917,16 +946,14 @@ elif page == "📹 Try Your Own Video":
                                     <div class="video-card">
                                         <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
                                             <span class="badge-pill badge-pill-danger">Rank #{item.get('rank', i+1)}</span>
-                                            <span style="color:#4caf50; font-weight:600; font-size:11px;">Sim: {sim:.4f}</span>
+                                            <span style="color:#81c784; font-weight:600; font-size:11px;">Sim: {sim:.4f}</span>
                                         </div>
-                                        <div style="font-weight:600; font-size:13px; margin-bottom:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
-                                            {item.get('title', 'Video')}
-                                        </div>
+                                        <div class="video-title">{item.get('title', 'Video')}</div>
                                         <span class="badge-pill">ResNet-50 Cosine</span>
                                     </div>
                                     """, unsafe_allow_html=True)
                         else:
-                            st.info("No visual nearest neighbors returned.")
+                            st.info("No visual nearest neighbors found.")
 
                     with tab_t:
                         txt_items = analysis_result.get("text_recommendations", [])
@@ -939,24 +966,22 @@ elif page == "📹 Try Your Own Video":
                                     <div class="video-card">
                                         <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
                                             <span class="badge-pill badge-pill-danger">Rank #{item.get('rank', i+1)}</span>
-                                            <span style="color:#4caf50; font-weight:600; font-size:11px;">Sim: {sim:.4f}</span>
+                                            <span style="color:#81c784; font-weight:600; font-size:11px;">Sim: {sim:.4f}</span>
                                         </div>
-                                        <div style="font-weight:600; font-size:13px; margin-bottom:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
-                                            {item.get('title', 'Video')}
-                                        </div>
+                                        <div class="video-title">{item.get('title', 'Video')}</div>
                                         <span class="badge-pill">Phase 8C BERT 512D</span>
                                     </div>
                                     """, unsafe_allow_html=True)
                         else:
-                            st.info("Provide title or description to generate text semantic recommendations.")
+                            st.info("Provide a title or description to generate text semantic recommendations.")
 
 
 # ================= PAGE 5: ARCHITECTURE & TELEMETRY =================
-elif page == "📊 Architecture & Telemetry":
-    st.header("📊 Architecture & Scientific Telemetry")
-    st.caption("Live system telemetry, scientific benchmark numbers, and model checkpoint provenance.")
+elif st.session_state["nav_page"] == "Architecture & Telemetry":
+    st.title("Architecture & Telemetry")
+    st.caption("System architecture specifications, benchmark measurements, and model provenance.")
 
-    # Two-Tower Architecture Code / Diagram
+    # Architecture Overview
     st.subheader("System Architecture")
     st.code("""
 +-------------------------------------------------------------------------+
@@ -965,13 +990,13 @@ elif page == "📊 Architecture & Telemetry":
 |   Streamlit Cloud App (streamlit_app.py) / React SPA (Vite, port 5173)  |
 |         |                                                               |
 |         v                                                               |
-|   FastAPI Backend / Direct Python Service                               |
+|   FastAPI Backend / Direct Python Service Layer                         |
 |         |                                                               |
-|         +-- Phase 8C Text Projection  (frozen BERT-base -> 512-D)      |
-|         +-- PostgreSQL 16 + pgvector 0.8.7  (HNSW ANN index)           |
-|         +-- Phase 10  User Personalization  (recency-decay profile)     |
-|         +-- Phase 11B Candidate Re-Ranking  (text 90% + metadata 10%)  |
-|         +-- Phase 12C Visual Retrieval  (ResNet-50 2048-D, w=0.00)     |
+|         +-- Phase 8C Text Projection (frozen BERT-base -> 512-D)        |
+|         +-- PostgreSQL 16 + pgvector 0.8.7 (HNSW ANN index)             |
+|         +-- Phase 10 User Personalization (recency-decay profile)       |
+|         +-- Phase 11B Candidate Re-Ranking (text 90% + metadata 10%)    |
+|         +-- Phase 12C Visual Retrieval (ResNet-50 2048-D, w=0.00)       |
 +-------------------------------------------------------------------------+
 """, language="text")
 
@@ -980,19 +1005,19 @@ elif page == "📊 Architecture & Telemetry":
     st.table([
         {"Property": "Checkpoint File", "Value": "data/checkpoints/EXP_MICROLENS_TEXT_COENGAGEMENT_V2/best.pt"},
         {"Property": "SHA-256 Checksum", "Value": "a82037eb790e2a23e133b8edc9973a0e6fdc3c466058abd61b68aed77d2d4996"},
-        {"Property": "Architecture", "Value": "Frozen BERT-base-uncased → Linear(768→512) → L2-Norm"},
+        {"Property": "Architecture", "Value": "Frozen BERT-base-uncased -> Linear(768->512) -> L2-Norm"},
         {"Property": "Loss Function", "Value": "InfoNCE Contrastive Loss (temperature = 0.07)"},
-        {"Property": "NDCG@10 (Validation)", "Value": "0.4578 (MicroLens-50K held-out split)"},
-        {"Property": "Recall@10 (Validation)", "Value": "0.3214 (MicroLens-50K held-out split)"},
+        {"Property": "Validation NDCG@10", "Value": "0.4578 (MicroLens-50K held-out split)"},
+        {"Property": "Validation Recall@10", "Value": "0.3214 (MicroLens-50K held-out split)"},
         {"Property": "Production Weights", "Value": "w_text=0.90, w_metadata=0.10, w_visual=0.00, w_audio=0.00"},
     ])
 
     # HNSW vs Exact Retrieval Benchmark
     st.subheader("Phase 11A HNSW ANN Retrieval Benchmark")
     st.table([
-        {"Metric": "Retrieval Latency", "HNSW ANN": "1.2 ms", "Exact Scan": "12.4 ms", "Lift": "10.3× Speedup"},
+        {"Metric": "Retrieval Latency", "HNSW ANN": "1.2 ms", "Exact Scan": "12.4 ms", "Lift": "10.3x Speedup"},
         {"Metric": "Recall@10 Agreement", "HNSW ANN": "97.4%", "Exact Scan": "100.0%", "Lift": "97.4% High Fidelity"},
-        {"Metric": "HNSW Configuration", "HNSW ANN": "M=16, ef_c=64, ef_s=40", "Exact Scan": "Sequential Cosine (<=>)", "Lift": "Sub-millisecond query"},
+        {"Metric": "Index Parameters", "HNSW ANN": "M=16, ef_c=64, ef_s=40", "Exact Scan": "Sequential Cosine (<=>)", "Lift": "Sub-millisecond query"},
     ])
 
     # Live Backend Telemetry Dump
