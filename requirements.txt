@@ -41,3 +41,8 @@ psycopg2-binary>=2.9.0  # PostgreSQL driver
 pgvector>=0.2.0  # Vector similarity search
 asyncpg>=0.28.0  # Async PostgreSQL driver
 python-dotenv>=1.0.0  # Environment variables
+
+# Interactive Streamlit Deployment
+streamlit>=1.30.0
+requests>=2.31.0
+

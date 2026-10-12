@@ -98,14 +98,15 @@ Title Text --> BERT-base (frozen) --> CLS [768-D]
 
 | Layer | Technology |
 |---|---|
-| **Frontend** | React 18, Vite, Bootstrap 5, Bootstrap Icons, React Router v7, Axios |
+| **Frontend (React)** | React 18, Vite, Bootstrap 5, Bootstrap Icons, React Router v7, Axios |
+| **Interactive App (Streamlit)** | Streamlit 1.30+, Dark Theme tokens, Responsive multi-tab dashboard |
 | **Backend** | FastAPI, Python 3.11+, Uvicorn, SQLAlchemy 2, Pydantic v2 |
 | **Database** | PostgreSQL 16 + pgvector 0.8.7, HNSW index (M=16, ef=64/40) |
 | **AI — Text** | BERT-base-uncased (frozen), Phase 8C linear projection head, 512-D |
 | **AI — Visual** | ResNet-50 (frozen ImageNet), frame mean pooling, 2048-D |
 | **AI — Audio** | Wav2Vec2-base-960h (frozen LibriSpeech), hidden-state mean pooling |
 | **AI Training** | InfoNCE contrastive loss, MicroLens-50K co-engagement pairs (Phase 8C) |
-| **Deployment** | Docker Compose (api + db + frontend services), Nginx SPA serving |
+| **Deployment** | Docker Compose, Streamlit Community Cloud (`streamlit_app.py`), Nginx SPA |
 
 ---
 
@@ -232,9 +233,18 @@ uvicorn src.api.app:app --reload --host 0.0.0.0 --port 8000
 cd frontend && npm run dev
 ```
 
-- Full UI: **http://localhost:5173** (or **http://localhost:5174** if port 5173 is occupied)
+- Full UI (React): **http://localhost:5173** (or **http://localhost:5174** if port 5173 is occupied)
 - Swagger docs: **http://localhost:8000/docs** (or **http://localhost:8001/docs** if port 8000 is occupied)
 *(Note: If port 8000 is bound by another service on your machine, launch with `--port 8001`; the Vite dev server proxy targets the active backend).*
+
+### Streamlit Interactive App (Deploy-Ready)
+
+```bash
+# Launch Streamlit interactive web application on port 8501
+streamlit run streamlit_app.py
+```
+- Streamlit UI: **http://localhost:8501**
+- Supports instant local execution and 1-click cloud hosting via **Streamlit Community Cloud** ([Full Streamlit Deployment Guide](docs/STREAMLIT_DEPLOYMENT.md)).
 
 ### Production Mode (Docker Compose)
 
@@ -437,6 +447,20 @@ docker-compose up --build -d
 ```
 
 Three containers: `video-recommender-db` (PostgreSQL 16 + pgvector), `video-recommender-api` (FastAPI + Uvicorn), `video-recommender-ui` (Nginx serving the compiled React SPA).
+
+### Streamlit Community Cloud (Free 1-Click Hosting)
+
+Deploy the multi-tab interactive application to **Streamlit Community Cloud** ([share.streamlit.io](https://share.streamlit.io/)):
+1. **Repository**: `MSIVAPAPARAO13/multimodal-youtube-recommendation-system`
+2. **Branch**: `main`
+3. **Main File Path**: `streamlit_app.py`
+4. **Secrets (App Settings > Secrets)**:
+   ```toml
+   # Optional: Hosted FastAPI or Managed PostgreSQL URL
+   FASTAPI_URL = "https://your-api.domain.com"
+   DATABASE_URL = "postgresql://postgres:password@your-host:5432/video_recommender"
+   ```
+5. Full instructions: [docs/STREAMLIT_DEPLOYMENT.md](docs/STREAMLIT_DEPLOYMENT.md).
 
 ### Key Environment Variables (see `.env.example`)
 
