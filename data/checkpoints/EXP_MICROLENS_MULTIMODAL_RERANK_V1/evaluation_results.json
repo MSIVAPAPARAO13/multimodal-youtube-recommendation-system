@@ -1,0 +1,149 @@
+{
+  "experiment_id": "EXP_MICROLENS_MULTIMODAL_RERANK_V1",
+  "timestamp": "2026-10-10T05:31:59.534931+00:00",
+  "checkpoint": "data/checkpoints/EXP_MICROLENS_TEXT_COENGAGEMENT_V2/best.pt",
+  "feature_availability_audit": {
+    "catalog_size": 2960,
+    "text_modality": {
+      "available_items": 2960,
+      "coverage_percent": 100.0,
+      "dimension": 512,
+      "source": "TEXT_COENGAGEMENT_V2 (Phase 8C Checkpoint)",
+      "status": "AVAILABLE"
+    },
+    "visual_modality": {
+      "available_items": 10,
+      "coverage_percent": 0.34,
+      "dimension": 512,
+      "source": "ResNet-50 Visual Encoder",
+      "status": "UNAVAILABLE_ON_FULL_CATALOG (Only 10 raw videos present in dataset)"
+    },
+    "audio_modality": {
+      "available_items": 0,
+      "coverage_percent": 0.0,
+      "dimension": 512,
+      "source": "Wav2Vec2 Audio Encoder",
+      "status": "UNAVAILABLE_ON_FULL_CATALOG (No audio tracks extracted for MicroLens-50K)"
+    },
+    "metadata_modality": {
+      "available_items": 0,
+      "coverage_percent": 0.0,
+      "source": "YouTube Category / Channel Metadata",
+      "status": "UNAVAILABLE_ON_FULL_CATALOG (MicroLens-50K contains titles only)"
+    }
+  },
+  "evaluation_protocol": {
+    "evaluation_type": "per_user_chronological_held_out",
+    "candidate_catalog_size": 2960,
+    "candidate_pool_size": 50,
+    "validation_users": 200,
+    "test_users": 300,
+    "min_history": 3,
+    "selected_config": {
+      "name": "Profile+Recent+Popularity",
+      "w_prof": 0.6,
+      "w_recent": 0.3,
+      "w_pop": 0.1
+    }
+  },
+  "metrics": {
+    "content_only_baseline": {
+      "Recall@1": 0.006666666666666667,
+      "Precision@1": 0.006666666666666667,
+      "NDCG@1": 0.006666666666666667,
+      "Recall@5": 0.02,
+      "Precision@5": 0.004000000000000001,
+      "NDCG@5": 0.012640098914067265,
+      "Recall@10": 0.023333333333333334,
+      "Precision@10": 0.0023333333333333335,
+      "NDCG@10": 0.013827456204427338,
+      "MRR": 0.010833333333333334
+    },
+    "phase_10_baseline": {
+      "Recall@1": 0.0033333333333333335,
+      "Precision@1": 0.0033333333333333335,
+      "NDCG@1": 0.0033333333333333335,
+      "Recall@5": 0.03,
+      "Precision@5": 0.006,
+      "NDCG@5": 0.017195925816339,
+      "Recall@10": 0.04,
+      "Precision@10": 0.004000000000000001,
+      "NDCG@10": 0.02045794363886981,
+      "MRR": 0.014365079365079367
+    },
+    "phase_11b_rerank": {
+      "Recall@1": 0.013333333333333334,
+      "Precision@1": 0.013333333333333334,
+      "NDCG@1": 0.013333333333333334,
+      "Recall@5": 0.04,
+      "Precision@5": 0.008000000000000002,
+      "NDCG@5": 0.026467334965508467,
+      "Recall@10": 0.06,
+      "Precision@10": 0.006000000000000001,
+      "NDCG@10": 0.03262352266760981,
+      "MRR": 0.024470899470899473
+    }
+  },
+  "relative_improvements_vs_phase10": {
+    "Recall@1": 0.01,
+    "Precision@1": 0.01,
+    "NDCG@1": 0.01,
+    "Recall@5": 0.01,
+    "Precision@5": 0.002,
+    "NDCG@5": 0.009271,
+    "Recall@10": 0.02,
+    "Precision@10": 0.002,
+    "NDCG@10": 0.012166,
+    "MRR": 0.010106
+  },
+  "statistical_significance": {
+    "paired_ttest_ndcg10": {
+      "t_stat": 2.2347,
+      "p_value": 0.026175981614246554
+    },
+    "paired_ttest_recall10": {
+      "t_stat": 2.1338,
+      "p_value": 0.03366894810648612
+    },
+    "statistically_significant_p05": true
+  },
+  "latency_telemetry": {
+    "stage1_retrieval_ms": {
+      "mean": 17.2327,
+      "p50": 16.0368,
+      "p95": 25.1708,
+      "p99": 29.3032
+    },
+    "stage2_rerank_ms": {
+      "mean": 1.4904,
+      "p50": 1.3824,
+      "p95": 2.2952,
+      "p99": 2.4287
+    },
+    "total_e2e_ms": {
+      "mean": 18.7232,
+      "p50": 17.4328,
+      "p95": 27.0314,
+      "p99": 31.6522
+    }
+  },
+  "synthetic_multimodal_status": {
+    "dataset": "data/fixtures/synthetic_visual_eval",
+    "sample_count": 15,
+    "categories": [
+      "programming",
+      "cybersecurity",
+      "machine_learning",
+      "web_development",
+      "cloud_computing"
+    ],
+    "verified_visual_encoder": "ResNet-50 (512-D, unit normalized)",
+    "pipeline_status": "FUNCTIONAL (Verified via test_visual_pipeline.py and test_reranking.py)"
+  },
+  "limitations": [
+    "Visual embeddings unavailable for 99.66% of MicroLens-50K catalog (only 10 raw videos present).",
+    "Audio tracks unavailable for MicroLens-50K catalog.",
+    "YouTube metadata (category, channel) absent in MicroLens-50K dataset.",
+    "Multimodal signals are active only when real multimodal inputs exist (renormalizes gracefully)."
+  ]
+}

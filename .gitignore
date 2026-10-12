@@ -7,11 +7,21 @@ __pycache__/
 
 # Data (too large for git)
 data/raw/microlens/videos/
+data/raw/youtube/
 *.mp4
+*.wav
+*.m4a
+*.webm
+*.jpg
+*.jpeg
+*.png
+!docs/screenshots/*.png
+!docs/screenshots/**/*.png
+!frontend/src/assets/**
 
-# Model checkpoints (too large)
-checkpoints/*.pt
+# Model checkpoints (too large, but allow project checkpoints)
 *.pt
+!data/checkpoints/**/*.pt
 
 # Logs
 logs/

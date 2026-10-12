@@ -52,29 +52,37 @@ class VideoTower(nn.Module):
         feature_dim: int = 512,
         freeze_encoders: bool = True,
         fusion_type: str = "gated",
-        pretrained: bool = True
+        pretrained: bool = True,
+        video_backbone: str = "resnet50",
+        audio_model: str = "facebook/wav2vec2-base-960h",
+        text_model: str = "bert-base-uncased"
     ):
         super().__init__()
 
         self.feature_dim = feature_dim
+        self.fusion_type = fusion_type
+        self.pretrained = pretrained
 
         # Initialize encoders
         self.video_encoder = VideoEncoder(
-            backbone="resnet18" if not pretrained else "resnet50",
+            backbone=video_backbone,
             feature_dim=feature_dim,
-            pretrained=pretrained
+            pretrained=pretrained,
+            freeze_backbone=freeze_encoders
         )
 
         self.audio_encoder = AudioEncoder(
-            model_name="facebook/wav2vec2-base-960h",
+            model_name=audio_model,
             feature_dim=feature_dim,
-            freeze_backbone=freeze_encoders
+            freeze_backbone=freeze_encoders,
+            pretrained=pretrained
         )
 
         self.text_encoder = TextEncoder(
-            model_name="bert-base-uncased",
+            model_name=text_model,
             feature_dim=feature_dim,
-            freeze_backbone=freeze_encoders
+            freeze_backbone=freeze_encoders,
+            pretrained=pretrained
         )
 
         # Fusion layer
@@ -170,19 +178,29 @@ class TwoTowerModel(nn.Module):
         share_towers: bool = True,
         temperature: float = 0.07,
         freeze_encoders: bool = True,
-        pretrained: bool = True
+        fusion_type: str = "gated",
+        pretrained: bool = True,
+        video_backbone: str = "resnet50",
+        audio_model: str = "facebook/wav2vec2-base-960h",
+        text_model: str = "bert-base-uncased"
     ):
         super().__init__()
 
         self.feature_dim = feature_dim
         self.temperature = temperature
         self.share_towers = share_towers
+        self.fusion_type = fusion_type
+        self.pretrained = pretrained
 
         # Primary tower (video content encoder)
         self.video_tower = VideoTower(
             feature_dim=feature_dim,
             freeze_encoders=freeze_encoders,
-            pretrained=pretrained
+            fusion_type=fusion_type,
+            pretrained=pretrained,
+            video_backbone=video_backbone,
+            audio_model=audio_model,
+            text_model=text_model
         )
 
         # For shared towers, reuse the same network
@@ -193,7 +211,11 @@ class TwoTowerModel(nn.Module):
             self.query_tower = VideoTower(
                 feature_dim=feature_dim,
                 freeze_encoders=freeze_encoders,
-                pretrained=pretrained
+                fusion_type=fusion_type,
+                pretrained=pretrained,
+                video_backbone=video_backbone,
+                audio_model=audio_model,
+                text_model=text_model
             )
 
     def encode_video(

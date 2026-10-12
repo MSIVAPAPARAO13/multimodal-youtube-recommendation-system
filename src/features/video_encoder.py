@@ -31,7 +31,8 @@ class VideoEncoder(nn.Module):
         backbone: str = "resnet50",
         pretrained: bool = True,
         feature_dim: int = 512,
-        aggregation: str = 'mean'
+        aggregation: str = 'mean',
+        freeze_backbone: bool = True
     ):
         super().__init__()
 
@@ -56,6 +57,11 @@ class VideoEncoder(nn.Module):
 
         else:
             raise ValueError(f"Backbone {backbone} not supported")
+
+        # Freeze backbone if requested
+        if freeze_backbone:
+            for param in self.backbone.parameters():
+                param.requires_grad = False
 
         # Projection: Map CNN features (2048-d for ResNet50) to our feature_dim
         # We add a hidden layer for more capacity

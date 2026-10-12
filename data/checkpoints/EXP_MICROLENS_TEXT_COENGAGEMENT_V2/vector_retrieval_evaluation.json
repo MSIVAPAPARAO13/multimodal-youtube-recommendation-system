@@ -1,0 +1,27 @@
+{
+  "evaluation_timestamp": "2026-10-09T11:10:12.162351+00:00",
+  "retrieval_mode": "TEXT_COENGAGEMENT_V2",
+  "model_version": "EXP_MICROLENS_TEXT_COENGAGEMENT_V2",
+  "candidate_gallery_size": 2960,
+  "test_query_count": 188,
+  "embedding_coverage": 1.0,
+  "missing_metadata_count": 0,
+  "invalid_embedding_count": 0,
+  "metrics": {
+    "valid_queries": 188,
+    "MRR": 0.0307919621749409,
+    "Recall@1": 0.02127659574468085,
+    "Recall@5": 0.047872340425531915,
+    "Recall@10": 0.05851063829787234,
+    "Precision@1": 0.02127659574468085,
+    "Precision@5": 0.009574468085106383,
+    "Precision@10": 0.005851063829787235,
+    "NDCG@10": 0.037269656166853744
+  },
+  "latency_ms": {
+    "mean": 63.292843084959614,
+    "p50": 60.593750000407454,
+    "p95": 75.7786500007569,
+    "p99": 87.37133899801839
+  }
+}

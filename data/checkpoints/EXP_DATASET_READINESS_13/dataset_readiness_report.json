@@ -1,0 +1,87 @@
+{
+  "milestone": "Phase 13 - Large-Scale Media Ingestion & Dataset Readiness",
+  "evaluation_timestamp": "2026-10-12T06:12:07.697575",
+  "pipeline_version": "13",
+  "catalog_summary": {
+    "total_catalog_items": 2983,
+    "unique_video_ids": 2983,
+    "records_with_youtube_ids": 23,
+    "records_with_metadata": 25,
+    "records_with_text_embedding": 2983
+  },
+  "ingestion_status": {
+    "total_jobs": 25,
+    "completed_ingestions": 25,
+    "failed_ingestions": 0,
+    "pending_ingestions": 2958,
+    "target_video_count": 1000
+  },
+  "asset_and_modality_coverage": {
+    "total_assets_registered": 300,
+    "distinct_videos_with_assets": 25,
+    "asset_type_breakdown": {
+      "THUMBNAIL": {
+        "READY": 25
+      },
+      "FRAME": {
+        "READY": 200
+      },
+      "AUDIO": {
+        "FAILED": 15,
+        "READY": 10
+      },
+      "METADATA": {
+        "READY": 25
+      },
+      "VIDEO": {
+        "READY": 25
+      }
+    },
+    "valid_video_coverage": 25,
+    "valid_thumbnail_coverage": 25,
+    "valid_frame_sequence_coverage": 25,
+    "verified_nonsilent_audio_coverage": 10,
+    "verified_no_audio_stream_coverage": 15
+  },
+  "cross_modal_alignment": {
+    "text_embeddings_available": 2983,
+    "visual_features_available": 25,
+    "audio_features_available": 10,
+    "text_to_video_aligned_count": 25,
+    "text_to_audio_aligned_count": 10,
+    "tri_modal_aligned_count": 10,
+    "tri_modal_alignment_ratio_catalog": 0.0034,
+    "tri_modal_alignment_ratio_ingested": 0.4
+  },
+  "storage_and_integrity": {
+    "total_media_storage_bytes": 99702512,
+    "total_media_storage_mb": 95.08,
+    "storage_limit_gb": 10.0,
+    "storage_limit_compliant": true,
+    "checksum_matches": 285,
+    "checksum_mismatches": 0,
+    "missing_or_corrupt_files": 0,
+    "failure_breakdown": {
+      "NO_AUDIO_STREAM": 15
+    }
+  },
+  "phase_14_training_readiness": {
+    "status": "NOT_YET_SUITABLE",
+    "verdict": "PASS (Pipeline Architecture & Audio Recovery Verified); PARTIAL (Corpus Expansion Bounded by YouTube API & Media Access)",
+    "is_suitable_for_training": false,
+    "evidence_and_findings": [
+      "FFmpeg pipeline recovered non-silent 16 kHz mono WAV streams for 100% of physical MicroLens media with audio tracks (10 videos).",
+      "All 10 recovered audio assets have verified unit-normalized 512-D Wav2Vec2 features persisted.",
+      "Synthetic video templates (15 videos) are properly distinguished and recorded with status=FAILED and error_category='NO_AUDIO_STREAM'.",
+      "Actual tri-modal aligned count is 10 videos out of target 1000.",
+      "Remaining 2958 catalog entries require external YouTube Data API quotas and media download execution.",
+      "Production ranking weights remain strictly at zero (w_visual=0.0, w_audio=0.0)."
+    ],
+    "remaining_blockers_for_phase_14": [
+      "Scale media corpus from 25 to >= 1000 tri-modal aligned videos before initiating supervised multimodal training.",
+      "Acquire external YouTube Data API quota and lawful media egress bandwidth for the remaining catalog entries.",
+      "Establish leakage-safe train/validation/test splits on the expanded dataset prior to Phase 14 representation training."
+    ]
+  },
+  "audit_duration_seconds": 0.4124
+}

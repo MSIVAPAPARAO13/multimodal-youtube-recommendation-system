@@ -13,7 +13,7 @@ from typing import Generator
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, Session
 
-from .config import DatabaseConfig
+from .config import DatabaseConfig, get_settings
 from .models import Base
 
 
@@ -41,12 +41,23 @@ class Database:
         if database_url is None:
             database_url = DatabaseConfig.get_database_url()
 
-        self.engine = create_engine(
-            database_url,
-            pool_size=DatabaseConfig.POOL_SIZE,
-            max_overflow=DatabaseConfig.MAX_OVERFLOW,
-            echo=False  # Set True to see SQL queries
-        )
+        if "sqlite" in database_url:
+            self.engine = create_engine(database_url, echo=False)
+        else:
+            s = get_settings()
+            try:
+                self.engine = create_engine(
+                    database_url,
+                    pool_size=s.DB_POOL_SIZE,
+                    max_overflow=s.DB_MAX_OVERFLOW,
+                    echo=False
+                )
+            except (ModuleNotFoundError, ImportError) as e:
+                import logging
+                logging.getLogger(__name__).warning(
+                    "PostgreSQL driver unavailable (%s). Falling back to SQLite development database.", e
+                )
+                self.engine = create_engine("sqlite:///data/video_recommender.db", echo=False)
 
         self.SessionLocal = sessionmaker(
             autocommit=False,
@@ -65,7 +76,9 @@ class Database:
         print("Database tables dropped")
 
     def init_pgvector(self):
-        """Initialize pgvector extension."""
+        """Initialize pgvector extension if running on PostgreSQL."""
+        if "postgresql" not in str(self.engine.url):
+            return
         with self.engine.connect() as conn:
             conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
             conn.commit()

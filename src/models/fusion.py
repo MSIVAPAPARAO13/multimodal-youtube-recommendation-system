@@ -60,6 +60,7 @@ class ConcatFusion(nn.Module):
         """
         # Concatenate: (batch, 1536)
         concat = torch.cat([video_emb, audio_emb, text_emb], dim=1)
+        concat = torch.nan_to_num(concat, nan=0.0)
 
         # Project: (batch, 512)
         fused = self.fusion(concat)
@@ -126,17 +127,33 @@ class GatedFusion(nn.Module):
         Returns:
             fused: (batch, output_dim)
         """
-        batch_size = video_emb.size(0)
+        # Clean any accidental NaNs
+        video_emb = torch.nan_to_num(video_emb, nan=0.0)
+        audio_emb = torch.nan_to_num(audio_emb, nan=0.0)
+        text_emb = torch.nan_to_num(text_emb, nan=0.0)
 
         # Stack modalities: (batch, 3, 512)
         stacked = torch.stack([video_emb, audio_emb, text_emb], dim=1)
 
+        # Detect missing modalities (norm < 1e-6)
+        modality_norms = torch.norm(stacked, p=2, dim=-1)
+        is_missing = modality_norms < 1e-6
+
         # Concatenate for gate input: (batch, 1536)
         concat = torch.cat([video_emb, audio_emb, text_emb], dim=1)
 
-        # Compute gate weights: (batch, 3)
-        gate_weights = self.gate(concat)
-        gate_weights = torch.softmax(gate_weights, dim=1)  # Sum to 1
+        # Compute gate logits: (batch, 3)
+        gate_logits = self.gate(concat)
+
+        # If some (but not all) modalities are missing, mask out missing ones
+        any_present = (~is_missing).any(dim=1, keepdim=True)
+        masked_logits = torch.where(
+            is_missing & any_present,
+            torch.tensor(-1e9, device=gate_logits.device, dtype=gate_logits.dtype),
+            gate_logits
+        )
+
+        gate_weights = torch.softmax(masked_logits, dim=1)  # Sum to 1
 
         # Expand for broadcasting: (batch, 3, 1)
         gate_weights = gate_weights.unsqueeze(-1)
@@ -161,9 +178,25 @@ class GatedFusion(nn.Module):
         Returns:
             weights: (batch, 3) - [video_weight, audio_weight, text_weight]
         """
+        video_emb = torch.nan_to_num(video_emb, nan=0.0)
+        audio_emb = torch.nan_to_num(audio_emb, nan=0.0)
+        text_emb = torch.nan_to_num(text_emb, nan=0.0)
+
+        stacked = torch.stack([video_emb, audio_emb, text_emb], dim=1)
+        modality_norms = torch.norm(stacked, p=2, dim=-1)
+        is_missing = modality_norms < 1e-6
+
         concat = torch.cat([video_emb, audio_emb, text_emb], dim=1)
-        gate_weights = torch.softmax(self.gate(concat), dim=1)
-        return gate_weights
+        gate_logits = self.gate(concat)
+
+        any_present = (~is_missing).any(dim=1, keepdim=True)
+        masked_logits = torch.where(
+            is_missing & any_present,
+            torch.tensor(-1e9, device=gate_logits.device, dtype=gate_logits.dtype),
+            gate_logits
+        )
+
+        return torch.softmax(masked_logits, dim=1)
 
 
 class AttentionFusion(nn.Module):
@@ -226,12 +259,23 @@ class AttentionFusion(nn.Module):
         Returns:
             fused: (batch, output_dim)
         """
+        video_emb = torch.nan_to_num(video_emb, nan=0.0)
+        audio_emb = torch.nan_to_num(audio_emb, nan=0.0)
+        text_emb = torch.nan_to_num(text_emb, nan=0.0)
+
         # Stack as sequence: (batch, 3, 512) - 3 "tokens" (one per modality)
         stacked = torch.stack([video_emb, audio_emb, text_emb], dim=1)
 
+        modality_norms = torch.norm(stacked, p=2, dim=-1)
+        is_missing = modality_norms < 1e-6
+        all_missing = is_missing.all(dim=1, keepdim=True)
+        key_padding_mask = is_missing & (~all_missing)
+
         # Self-attention: each modality attends to others
-        # Output: (batch, 3, 512)
-        attended, _ = self.attention(stacked, stacked, stacked)
+        attended, _ = self.attention(
+            stacked, stacked, stacked,
+            key_padding_mask=key_padding_mask if key_padding_mask.any() else None
+        )
 
         # Residual connection + norm
         attended = self.norm(stacked + attended)

@@ -27,6 +27,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     # For PostgreSQL
     libpq-dev \
+    # Utilities & HTTP
+    curl \
     # Build tools
     gcc \
     g++ \

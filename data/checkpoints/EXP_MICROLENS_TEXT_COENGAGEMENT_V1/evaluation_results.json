@@ -1,0 +1,57 @@
+{
+  "experiment_id": "EXP_MICROLENS_TEXT_COENGAGEMENT_V1",
+  "evaluation_timestamp_utc": "2026-10-09T09:30:14.193744+00:00",
+  "checkpoint_path": "data\\checkpoints\\EXP_MICROLENS_TEXT_COENGAGEMENT_V1\\best.pt",
+  "test_users": 100,
+  "test_pairs": 191,
+  "unique_queries": 188,
+  "candidate_gallery_size": 2960,
+  "metrics": {
+    "raw_bert_768d": {
+      "valid_queries": 188,
+      "MRR": 0.03332420649763156,
+      "Recall@1": 0.02127659574468085,
+      "Precision@1": 0.02127659574468085,
+      "NDCG@1": 0.02127659574468085,
+      "Recall@5": 0.0425531914893617,
+      "Precision@5": 0.00851063829787234,
+      "NDCG@5": 0.032939021623491,
+      "Recall@10": 0.047872340425531915,
+      "Precision@10": 0.0047872340425531915,
+      "NDCG@10": 0.03454024500468239
+    },
+    "untrained_projection_baseline": {
+      "valid_queries": 188,
+      "MRR": 0.02653324568343234,
+      "Recall@1": 0.010638297872340425,
+      "Precision@1": 0.010638297872340425,
+      "NDCG@1": 0.010638297872340425,
+      "Recall@5": 0.03723404255319149,
+      "Precision@5": 0.007446808510638298,
+      "NDCG@5": 0.026353167938080974,
+      "Recall@10": 0.047872340425531915,
+      "Precision@10": 0.0047872340425531915,
+      "NDCG@10": 0.029491970182665386
+    },
+    "trained_coengagement_model": {
+      "valid_queries": 188,
+      "MRR": 0.025923704042873096,
+      "Recall@1": 0.015957446808510637,
+      "Precision@1": 0.015957446808510637,
+      "NDCG@1": 0.015957446808510637,
+      "Recall@5": 0.031914893617021274,
+      "Precision@5": 0.006382978723404256,
+      "NDCG@5": 0.023895121647437467,
+      "Recall@10": 0.0425531914893617,
+      "Precision@10": 0.00425531914893617,
+      "NDCG@10": 0.027327419591192302
+    }
+  },
+  "relative_improvements_pct_over_untrained": {
+    "Recall@1": 50.0,
+    "Recall@5": -14.29,
+    "Recall@10": -11.11,
+    "MRR": -2.3,
+    "NDCG@10": -7.34
+  }
+}

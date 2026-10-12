@@ -1,30 +1,97 @@
 """
-TextEncoder: Extracts text features from video titles/descriptions using BERT
+TextEncoder: Extracts 512-dimensional text embeddings using BERT baseline.
 
-Key Concepts:
-1. Text is tokenized into subwords (e.g., "playing" → "play" + "##ing")
-2. BERT converts tokens into contextualized embeddings
-3. Each token gets a 768-d vector that depends on surrounding context
-4. We aggregate into a single text embedding
-
-Same pattern as Video and Audio encoders!
+Includes support for:
+1. Canonical YouTubeTextInput with structured section formatting (title, description, tags, transcript)
+2. Token-aware window chunking and hierarchical pooling via TextChunker
+3. Deterministic inference with frozen pretrained backbone
+4. Experimental abstraction for sentence-transformers/all-MiniLM-L6-v2
+5. Numerical stability and diagnostic quality metrics
 """
 
+from typing import Union, Any, Optional
+import logging
 import torch
 import torch.nn as nn
 from transformers import BertModel, BertTokenizer
 
+from src.features.text_processor import (
+    YouTubeTextInput,
+    TextProcessor,
+    TextQualityDiagnostics,
+    clean_transcript,
+)
+from src.features.text_chunker import TextChunker
+
+logger = logging.getLogger(__name__)
+
+
+def format_text_input(
+    item: Union[str, dict[str, Any]],
+    include_metadata: bool = True
+) -> str:
+    """
+    Format multimodal text input into a single string for BERT.
+    Supports title, description, tags, and transcript, while remaining
+    fully backward compatible with simple title-only strings.
+
+    Args:
+        item: Raw text string or dictionary with metadata fields
+        include_metadata: Whether to append description, tags, and transcript
+
+    Returns:
+        Formatted string representation
+    """
+    if isinstance(item, str):
+        return item
+    if not isinstance(item, dict):
+        return str(item)
+
+    title = str(item.get("title", "")).strip()
+    if not include_metadata:
+        return title
+
+    parts = []
+    if title:
+        parts.append(title)
+
+    description = str(item.get("description", "")).strip()
+    if description:
+        parts.append(description[:200])
+
+    tags = item.get("tags")
+    if tags:
+        if isinstance(tags, list):
+            valid_tags = [str(t).strip() for t in tags if str(t).strip()]
+            if valid_tags:
+                parts.append("Tags: " + ", ".join(valid_tags))
+        elif isinstance(tags, str) and tags.strip():
+            parts.append("Tags: " + tags.strip())
+
+    transcript = str(item.get("transcript", "")).strip()
+    if transcript:
+        parts.append("Transcript: " + transcript[:300])
+
+    return ". ".join(parts) if parts else ""
+
 
 class TextEncoder(nn.Module):
     """
-    Encodes text (titles, descriptions) into fixed-size embeddings using BERT.
+    Encodes text (titles, descriptions, transcripts) into 512-dimensional embeddings
+    using a frozen BERT baseline backbone and trained projection head.
 
     Args:
-        model_name: Which BERT model to use
-        feature_dim: Final embedding size (512 to match video/audio)
-        aggregation: How to combine token features ('cls', 'mean', 'attention')
-        freeze_backbone: If True, don't train BERT (faster, less memory)
-        max_length: Maximum number of tokens (longer text gets truncated)
+        model_name: Which BERT model to use ('bert-base-uncased' by default)
+        feature_dim: Final embedding dimension (512 to match video/audio)
+        aggregation: Token aggregation method ('cls', 'mean', 'attention')
+        freeze_backbone: If True, freeze BERT backbone weights
+        max_length: Maximum number of tokens per sequence (default 128)
+        pretrained: If True, load pretrained HuggingFace weights
+        use_chunking: If True, enable TextChunker for long text/transcripts
+        chunk_size: Window size in tokens for chunking (default 128)
+        chunk_overlap: Overlap between consecutive chunks (default 32)
+        max_total_tokens: Overall maximum token budget across chunks (default 1024)
+        pooling_method: How to pool chunk embeddings ('mean', 'decay', 'weighted')
     """
 
     def __init__(
@@ -33,32 +100,45 @@ class TextEncoder(nn.Module):
         feature_dim: int = 512,
         aggregation: str = "cls",
         freeze_backbone: bool = True,
-        max_length: int = 128
+        max_length: int = 128,
+        pretrained: bool = True,
+        use_chunking: bool = True,
+        chunk_size: int = 128,
+        chunk_overlap: int = 32,
+        max_total_tokens: int = 1024,
+        pooling_method: str = "mean",
     ):
         super().__init__()
 
         self.feature_dim = feature_dim
         self.aggregation = aggregation
         self.max_length = max_length
+        self.pretrained = pretrained
+        self.model_name = model_name
+        self.use_chunking = use_chunking
+        self.pooling_method = pooling_method
 
-        # Load pre-trained BERT
-        # "uncased" means it lowercases everything ("Hello" → "hello")
-        self.backbone = BertModel.from_pretrained(model_name)
+        # Load BERT backbone
+        if pretrained:
+            self.backbone = BertModel.from_pretrained(model_name)
+        else:
+            from transformers import BertConfig
+            config = BertConfig()
+            self.backbone = BertModel(config)
+
         self.tokenizer = BertTokenizer.from_pretrained(model_name)
 
-        # BERT-base outputs 768-dimensional features
-        # BERT-large outputs 1024-dimensional features
         if "large" in model_name:
             backbone_dim = 1024
         else:
             backbone_dim = 768
 
-        # Freeze backbone to save memory
+        # Freeze backbone
         if freeze_backbone:
             for param in self.backbone.parameters():
                 param.requires_grad = False
 
-        # Projection: Map BERT features to our feature_dim
+        # Projection: Map BERT features (768) to feature_dim (512)
         self.projection = nn.Sequential(
             nn.Linear(backbone_dim, backbone_dim),
             nn.ReLU(),
@@ -66,7 +146,7 @@ class TextEncoder(nn.Module):
             nn.Linear(backbone_dim, feature_dim)
         )
 
-        # Optional: Attention mechanism for weighted aggregation
+        # Optional: Attention mechanism for weighted token aggregation
         if aggregation == "attention":
             self.attention = nn.Sequential(
                 nn.Linear(feature_dim, 128),
@@ -74,123 +154,260 @@ class TextEncoder(nn.Module):
                 nn.Linear(128, 1)
             )
 
-    def tokenize(self, texts: list[str]) -> dict:
-        """
-        Convert list of strings to token IDs.
+        # Text chunker and processor
+        self.chunker = TextChunker(
+            chunk_size=chunk_size,
+            chunk_overlap=chunk_overlap,
+            max_tokens=max_total_tokens
+        )
+        self.processor = TextProcessor()
 
-        Args:
-            texts: List of strings, e.g., ["How to cook pasta", "Funny cat video"]
+    @staticmethod
+    def format_input(item: Union[str, dict[str, Any]]) -> str:
+        """Helper to format a single title or metadata dictionary."""
+        return format_text_input(item)
 
-        Returns:
-            Dictionary with 'input_ids' and 'attention_mask' tensors
+    def tokenize(self, texts: list[Union[str, dict[str, Any]]]) -> dict:
         """
+        Convert list of strings or metadata dicts to token IDs.
+        """
+        normalized_texts = [format_text_input(t) for t in texts]
         return self.tokenizer(
-            texts,
-            padding=True,              # Pad shorter texts to match longest
-            truncation=True,           # Cut off texts longer than max_length
+            normalized_texts,
+            padding=True,
+            truncation=True,
             max_length=self.max_length,
-            return_tensors="pt"        # Return PyTorch tensors
+            return_tensors="pt"
         )
 
-    def forward(
+    def encode_single_long_text(
         self,
-        input_ids: torch.Tensor = None,
-        attention_mask: torch.Tensor = None,
-        texts: list[str] = None
-    ) -> torch.Tensor:
+        text: str
+    ) -> tuple[torch.Tensor, int, int]:
         """
-        Args:
-            Option 1 - Pre-tokenized:
-                input_ids: (batch_size, seq_len) token IDs
-                attention_mask: (batch_size, seq_len) mask for padding
-
-            Option 2 - Raw text:
-                texts: List of strings to encode
+        Encode a single long text or structured text segment using TextChunker.
 
         Returns:
-            embeddings: (batch_size, feature_dim)
+            embedding: (1, feature_dim) tensor
+            num_chunks: number of chunks evaluated
+            token_count: total tokens in text
         """
-        # If raw text provided, tokenize first
-        if texts is not None:
-            tokens = self.tokenize(texts)
-            input_ids = tokens["input_ids"]
-            attention_mask = tokens["attention_mask"]
+        chunk_data = self.chunker.chunk_text(
+            text=text,
+            tokenizer=self.tokenizer,
+            add_special_tokens=True
+        )
 
-            # Move to same device as model
-            input_ids = input_ids.to(self.backbone.device)
-            attention_mask = attention_mask.to(self.backbone.device)
+        input_ids = chunk_data["input_ids"].to(self.backbone.device)
+        attention_mask = chunk_data["attention_mask"].to(self.backbone.device)
+        num_chunks = chunk_data["num_chunks"]
+        total_tokens = chunk_data["total_tokens"]
 
-        # Pass through BERT
-        # Output shape: (batch_size, seq_len, 768)
+        # Run BERT over all chunks in a single batched pass
+        chunk_embeddings = self._forward_tokens(input_ids, attention_mask)
+
+        # Pool across chunk embeddings
+        doc_embedding = self.chunker.pool_chunk_embeddings(
+            chunk_embeddings=chunk_embeddings,
+            method=self.pooling_method
+        )
+
+        return doc_embedding, num_chunks, total_tokens
+
+    def _forward_tokens(
+        self,
+        input_ids: torch.Tensor,
+        attention_mask: torch.Tensor
+    ) -> torch.Tensor:
+        """Internal helper: execute BERT forward pass on tokenized batch."""
         outputs = self.backbone(
             input_ids=input_ids,
             attention_mask=attention_mask,
             return_dict=True
         )
 
-        # Get hidden states for all tokens
-        # Shape: (batch_size, seq_len, 768)
-        hidden_states = outputs.last_hidden_state
+        hidden_states = outputs.last_hidden_state  # (B, seq_len, 768)
 
-        # Aggregate tokens into single embedding
         if self.aggregation == "cls":
-            # Use [CLS] token embedding (first token)
-            # This is designed to represent the whole sentence
-            # Shape: (batch_size, 768)
-            features = hidden_states[:, 0, :]
-
+            features = hidden_states[:, 0, :]      # (B, 768)
         elif self.aggregation == "mean":
-            # Average all token embeddings (excluding padding)
-            # attention_mask: 1 for real tokens, 0 for padding
-            # Shape: (batch_size, 768)
-            mask = attention_mask.unsqueeze(-1)  # (batch, seq_len, 1)
-            features = (hidden_states * mask).sum(dim=1) / mask.sum(dim=1)
-
+            mask = attention_mask.unsqueeze(-1)
+            features = (hidden_states * mask).sum(dim=1) / (mask.sum(dim=1) + 1e-8)
         elif self.aggregation == "attention":
-            # First project, then apply attention
-            projected = self.projection(hidden_states)  # (batch, seq_len, 512)
-            attention_scores = self.attention(projected)  # (batch, seq_len, 1)
-
-            # Mask padding tokens before softmax
+            projected = self.projection(hidden_states)
+            attention_scores = self.attention(projected)
             if attention_mask is not None:
                 attention_scores = attention_scores.masked_fill(
                     attention_mask.unsqueeze(-1) == 0,
                     float("-inf")
                 )
-
             attention_weights = torch.softmax(attention_scores, dim=1)
             text_emb = (projected * attention_weights).sum(dim=1)
-            return text_emb
+            return torch.nan_to_num(text_emb, nan=0.0, posinf=0.0, neginf=0.0)
+        else:
+            features = hidden_states[:, 0, :]
 
-        # Project to final dimension
-        # Shape: (batch_size, 512)
         text_emb = self.projection(features)
+        return torch.nan_to_num(text_emb, nan=0.0, posinf=0.0, neginf=0.0)
 
-        return text_emb
+    def forward(
+        self,
+        input_ids: torch.Tensor = None,
+        attention_mask: torch.Tensor = None,
+        texts: list[Union[str, dict[str, Any], YouTubeTextInput]] = None
+    ) -> torch.Tensor:
+        """
+        Forward pass producing 512-dimensional text embeddings.
+
+        Args:
+            input_ids: Optional pre-tokenized input IDs (B, seq_len)
+            attention_mask: Optional attention mask (B, seq_len)
+            texts: List of strings or metadata dictionaries / YouTubeTextInput
+
+        Returns:
+            embeddings: Tensor of shape (batch_size, feature_dim)
+        """
+        # Option 1: Direct token tensors provided
+        if input_ids is not None:
+            if attention_mask is None:
+                attention_mask = torch.ones_like(input_ids)
+            input_ids = input_ids.to(self.backbone.device)
+            attention_mask = attention_mask.to(self.backbone.device)
+            return self._forward_tokens(input_ids, attention_mask)
+
+        # Option 2: List of text inputs
+        if texts is not None:
+            # Check if any input is a dictionary containing a transcript or structured text
+            # requiring long-text chunking
+            has_structured_or_long = any(
+                isinstance(t, (dict, YouTubeTextInput)) or (isinstance(t, str) and len(t) > 500)
+                for t in texts
+            )
+
+            if self.use_chunking and has_structured_or_long:
+                # Process each item with chunking if it contains structured fields
+                embeddings = []
+                for item in texts:
+                    if isinstance(item, (dict, YouTubeTextInput)):
+                        structured_str = self.processor.format_structured_text(item)
+                    else:
+                        structured_str = str(item)
+                    emb, _, _ = self.encode_single_long_text(structured_str)
+                    embeddings.append(emb)
+                return torch.cat(embeddings, dim=0)
+
+            # Standard batch tokenization for short text / titles
+            tokens = self.tokenize(texts)
+            input_ids = tokens["input_ids"].to(self.backbone.device)
+            attention_mask = tokens["attention_mask"].to(self.backbone.device)
+            return self._forward_tokens(input_ids, attention_mask)
+
+        raise ValueError("Either input_ids or texts must be provided to TextEncoder.forward()")
 
 
-# Test code to verify it works
-if __name__ == "__main__":
-    print("Testing TextEncoder...")
-    print("(This will download BERT on first run, ~440MB)")
+class SentenceTransformerExperimentalEncoder(nn.Module):
+    """
+    Experimental Model Abstraction (TASK 7).
 
-    encoder = TextEncoder(
-        model_name="bert-base-uncased",
-        feature_dim=512,
-        aggregation="cls",
-        freeze_backbone=True
-    )
+    Enables offline comparison between the baseline BERT model and
+    'sentence-transformers/all-MiniLM-L6-v2'.
 
-    # Test with some video titles/descriptions
-    test_texts = [
-        "How to make delicious pasta at home",
-        "Funny cat compilation 2024",
-        "Learn Python programming for beginners",
-        "Amazing travel vlog from Japan"
-    ]
+    IMPORTANT:
+    - This model is NOT used as the default production model.
+    - It is NOT downloaded during normal unit tests.
+    - Default remains bert-base-uncased.
+    """
 
-    output = encoder(texts=test_texts)
+    def __init__(
+        self,
+        model_name: str = "sentence-transformers/all-MiniLM-L6-v2",
+        feature_dim: int = 512,
+        pretrained: bool = False
+    ):
+        super().__init__()
+        self.model_name = model_name
+        self.feature_dim = feature_dim
+        self.pretrained = pretrained
+        self._is_loaded = False
 
-    print(f"Input: {len(test_texts)} text strings")
-    print(f"Output shape: {output.shape}")  # (4, 512)
-    print("[OK] TextEncoder working!")
+        # Projection from MiniLM 384-d output to canonical 512-d feature space
+        self.projection = nn.Sequential(
+            nn.Linear(384, 384),
+            nn.ReLU(),
+            nn.Dropout(0.1),
+            nn.Linear(384, feature_dim)
+        )
+
+        if pretrained:
+            self._load_model()
+
+    def _load_model(self):
+        """Lazy loader: avoids downloading models during standard initialization."""
+        try:
+            from transformers import AutoModel, AutoTokenizer
+            self.backbone = AutoModel.from_pretrained(self.model_name)
+            self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+            for param in self.backbone.parameters():
+                param.requires_grad = False
+            self.backbone.eval()
+            self._is_loaded = True
+        except Exception as e:
+            logger.warning(
+                "Could not load experimental model %s: %s. Encoder remains unloaded.",
+                self.model_name, e
+            )
+            self._is_loaded = False
+
+    def forward(self, texts: list[str]) -> torch.Tensor:
+        """Forward pass projecting MiniLM embeddings to 512 dimensions."""
+        if not self._is_loaded:
+            raise RuntimeError(
+                f"Experimental model '{self.model_name}' has not been loaded. "
+                "Do not invoke during standard unit tests."
+            )
+
+        tokens = self.tokenizer(
+            texts,
+            padding=True,
+            truncation=True,
+            max_length=256,
+            return_tensors="pt"
+        )
+        tokens = {k: v.to(self.projection[0].weight.device) for k, v in tokens.items()}
+
+        outputs = self.backbone(**tokens)
+        # Mean pooling across tokens
+        mask = tokens["attention_mask"].unsqueeze(-1)
+        mean_pooled = (outputs.last_hidden_state * mask).sum(dim=1) / (mask.sum(dim=1) + 1e-8)
+        projected = self.projection(mean_pooled)
+        return torch.nan_to_num(projected, nan=0.0)
+
+
+def create_text_encoder(
+    model_type: str = "bert",
+    feature_dim: int = 512,
+    pretrained: bool = True,
+    **kwargs
+) -> nn.Module:
+    """
+    Factory creating either the production BERT encoder or the experimental MiniLM encoder.
+
+    Args:
+        model_type: 'bert' (default production baseline) or 'sentence-transformers'
+        feature_dim: Output dimension (must be 512)
+        pretrained: Whether to load pretrained weights
+    """
+    if model_type == "bert":
+        return TextEncoder(
+            feature_dim=feature_dim,
+            pretrained=pretrained,
+            **kwargs
+        )
+    elif model_type in ("sentence-transformers", "all-minilm"):
+        return SentenceTransformerExperimentalEncoder(
+            feature_dim=feature_dim,
+            pretrained=pretrained,
+            **kwargs
+        )
+    else:
+        raise ValueError(f"Unknown text encoder model_type '{model_type}'. Expected 'bert' or 'sentence-transformers'.")

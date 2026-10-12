@@ -1,0 +1,85 @@
+{
+  "experiment_id": "EXP_MICROLENS_USER_PERSONALIZATION_V1",
+  "timestamp": "2026-10-09T12:28:41.404683+00:00",
+  "checkpoint": "data/checkpoints/EXP_MICROLENS_TEXT_COENGAGEMENT_V2/best.pt",
+  "protocol": "per_user_chronological",
+  "leakage_protection": {
+    "strict_cutoff_filtering": true,
+    "future_interactions_excluded": true,
+    "deduplication_policy": "keep_latest_position"
+  },
+  "evaluation_config": {
+    "eval_users_requested": 500,
+    "eligible_users_total": 16246,
+    "evaluated_queries": 500,
+    "candidate_catalog_size": 2960,
+    "min_history_interactions": 3,
+    "decay_factor": 0.85,
+    "exclude_seen": true,
+    "cold_start_fallback_count": 0,
+    "fallback_rate": 0.0
+  },
+  "metrics": {
+    "personalized_profile": {
+      "Recall@1": 0.022,
+      "Recall@5": 0.05,
+      "Recall@10": 0.06,
+      "Precision@1": 0.022,
+      "Precision@5": 0.01,
+      "Precision@10": 0.006,
+      "NDCG@1": 0.022,
+      "NDCG@5": 0.03590161483824376,
+      "NDCG@10": 0.03915642195200037,
+      "MRR": 0.032654761904761895
+    },
+    "content_only_baseline": {
+      "Recall@1": 0.012,
+      "Recall@5": 0.04,
+      "Recall@10": 0.048,
+      "Precision@1": 0.012,
+      "Precision@5": 0.008,
+      "Precision@10": 0.0048000000000000004,
+      "NDCG@1": 0.012,
+      "NDCG@5": 0.02616239134749648,
+      "NDCG@10": 0.028738725220183402,
+      "MRR": 0.02272222222222222
+    },
+    "cold_start_baseline": {
+      "Recall@1": 0.0,
+      "Recall@5": 0.01,
+      "Recall@10": 0.012,
+      "Precision@1": 0.0,
+      "Precision@5": 0.002,
+      "Precision@10": 0.0012000000000000001,
+      "NDCG@1": 0.0,
+      "NDCG@5": 0.004670623852227868,
+      "NDCG@10": 0.005383038226443912,
+      "MRR": 0.0033
+    }
+  },
+  "relative_improvements": {
+    "delta_Recall@1": 0.009999999999999998,
+    "delta_Recall@5": 0.010000000000000002,
+    "delta_Recall@10": 0.011999999999999997,
+    "delta_Precision@1": 0.009999999999999998,
+    "delta_Precision@5": 0.002,
+    "delta_Precision@10": 0.0011999999999999997,
+    "delta_NDCG@1": 0.009999999999999998,
+    "delta_NDCG@5": 0.009739223490747278,
+    "delta_NDCG@10": 0.010417696731816969,
+    "delta_MRR": 0.009932539682539675
+  },
+  "latency_ms": {
+    "profile_construction": {
+      "mean": 0.1488,
+      "p50": 0.1323,
+      "p95": 0.2552
+    },
+    "candidate_ranking": {
+      "mean": 62.1131,
+      "p50": 60.5692,
+      "p95": 69.7564
+    },
+    "total_mean": 62.2618
+  }
+}

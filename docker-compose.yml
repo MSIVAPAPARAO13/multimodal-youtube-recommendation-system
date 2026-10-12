@@ -52,7 +52,7 @@ services:
       - POSTGRES_PASSWORD=postgres
       - POSTGRES_DB=video_recommender
     ports:
-      - "5433:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       # Persist database data
       - postgres_data:/var/lib/postgresql/data
@@ -63,6 +63,18 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
+
+  # ============ Frontend Service ============
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: video-recommender-ui
+    ports:
+      - "5173:80"
+    depends_on:
+      - api
     restart: unless-stopped
 
 # ============ Volumes ============

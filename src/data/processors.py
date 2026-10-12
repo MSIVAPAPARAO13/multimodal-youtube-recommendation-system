@@ -4,25 +4,40 @@ Media Processors: Extract frames and audio from video files
 These utilities handle the raw video → tensor conversion needed for our encoders.
 """
 
-import torch
-import numpy as np
+import logging
 from pathlib import Path
+import numpy as np
+import torch
+from torchvision import transforms
 
-# Video processing
-import cv2
+try:
+    import cv2
+    HAS_OPENCV = True
+except ImportError:
+    cv2 = None
+    HAS_OPENCV = False
 
-# Audio processing
-import librosa
+try:
+    import librosa
+    HAS_LIBROSA = True
+except ImportError:
+    librosa = None
+    HAS_LIBROSA = False
+
+logger = logging.getLogger(__name__)
+
+IMAGENET_MEAN = [0.485, 0.456, 0.406]
+IMAGENET_STD = [0.229, 0.224, 0.225]
 
 
 class VideoProcessor:
     """
-    Extracts frames from video files.
+    Extracts frames from video files with standard ImageNet preprocessing.
 
     Args:
         num_frames: How many frames to sample from each video
         frame_size: Resize frames to (height, width)
-        normalize: Whether to normalize pixel values to [0, 1]
+        normalize: Whether to normalize pixel values to ImageNet distribution
     """
 
     def __init__(
@@ -34,6 +49,13 @@ class VideoProcessor:
         self.num_frames = num_frames
         self.frame_size = frame_size
         self.normalize = normalize
+        if self.normalize:
+            self.transform = transforms.Normalize(
+                mean=IMAGENET_MEAN,
+                std=IMAGENET_STD
+            )
+        else:
+            self.transform = None
 
     def extract_frames(self, video_path: str) -> torch.Tensor:
         """
@@ -45,22 +67,29 @@ class VideoProcessor:
         Returns:
             frames: (num_frames, 3, H, W) tensor
         """
-        video_path = str(video_path)
+        if not HAS_OPENCV:
+            raise RuntimeError("OpenCV (cv2) is required for video extraction. Please install opencv-python.")
+
+        video_path_obj = Path(video_path)
+        if not video_path_obj.exists():
+            raise FileNotFoundError(f"Video file not found: {video_path}")
+
+        video_path_str = str(video_path)
 
         # Open video file
-        cap = cv2.VideoCapture(video_path)
+        cap = cv2.VideoCapture(video_path_str)
 
         if not cap.isOpened():
-            raise ValueError(f"Cannot open video: {video_path}")
+            raise ValueError(f"Cannot open video: {video_path_str}")
 
         # Get video properties
         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
-        if total_frames == 0:
-            raise ValueError(f"Video has no frames: {video_path}")
+        if total_frames <= 0:
+            cap.release()
+            raise ValueError(f"Video has no readable frames: {video_path_str}")
 
         # Calculate which frames to sample (evenly spaced)
-        # Example: 100 frames, want 8 → indices [0, 14, 28, 42, 57, 71, 85, 99]
         if total_frames >= self.num_frames:
             frame_indices = np.linspace(0, total_frames - 1, self.num_frames, dtype=int)
         else:
@@ -71,28 +100,27 @@ class VideoProcessor:
 
         for idx in frame_indices:
             # Seek to frame
-            cap.set(cv2.CAP_PROP_POS_FRAMES, idx)
+            cap.set(cv2.CAP_PROP_POS_FRAMES, int(idx))
 
             # Read frame
             ret, frame = cap.read()
 
-            if not ret:
+            if not ret or frame is None:
                 # If frame read fails, use black frame
                 frame = np.zeros((self.frame_size[0], self.frame_size[1], 3), dtype=np.uint8)
-
-            # BGR → RGB (OpenCV loads as BGR)
-            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            else:
+                # BGR -> RGB (OpenCV loads as BGR)
+                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
             # Resize to target size
             frame = cv2.resize(frame, (self.frame_size[1], self.frame_size[0]))
-
             frames.append(frame)
 
         cap.release()
 
         # Pad if video was too short
         while len(frames) < self.num_frames:
-            frames.append(frames[-1].copy())  # Repeat last frame
+            frames.append(frames[-1].copy())
 
         # Stack into numpy array: (num_frames, H, W, 3)
         frames = np.stack(frames)
@@ -100,9 +128,10 @@ class VideoProcessor:
         # Convert to tensor and rearrange: (num_frames, 3, H, W)
         frames = torch.from_numpy(frames).permute(0, 3, 1, 2).float()
 
-        # Normalize to [0, 1]
+        # Normalize with ImageNet mean and std
         if self.normalize:
             frames = frames / 255.0
+            frames = self.transform(frames)
 
         return frames
 
@@ -127,6 +156,7 @@ class AudioProcessor:
         self.duration = duration
         self.mono = mono
         self.target_length = int(sample_rate * duration)
+        self.last_extraction_success = False
 
     def extract_audio(self, video_path: str) -> torch.Tensor:
         """
@@ -136,36 +166,51 @@ class AudioProcessor:
             video_path: Path to video file
 
         Returns:
-            waveform: (num_samples,) tensor, e.g., (80000,) for 5 seconds
+            waveform: (num_samples,) tensor, e.g., (80000,) for 5 seconds.
+                      Returns an explicit zero tensor and flags last_extraction_success=False
+                      if extraction fails or is unavailable.
         """
-        video_path = str(video_path)
+        video_path_obj = Path(video_path)
+        if not video_path_obj.exists():
+            logger.warning("[AUDIO_EXTRACTION_UNAVAILABLE] Video file not found: %s", video_path)
+            self.last_extraction_success = False
+            return torch.zeros(self.target_length, dtype=torch.float32)
+
+        if not HAS_LIBROSA:
+            logger.warning("[AUDIO_EXTRACTION_UNAVAILABLE] librosa is not available. Returning silent placeholder.")
+            self.last_extraction_success = False
+            return torch.zeros(self.target_length, dtype=torch.float32)
+
+        video_path_str = str(video_path)
 
         try:
-            # librosa can extract audio from video files
-            # sr=None loads at original sample rate, then we resample
-            waveform, orig_sr = librosa.load(
-                video_path,
-                sr=self.sample_rate,  # Resample to target rate
+            waveform, _ = librosa.load(
+                video_path_str,
+                sr=self.sample_rate,
                 mono=self.mono,
-                duration=self.duration  # Only load first N seconds
+                duration=self.duration
             )
+            # Replace NaNs or Infs if any
+            waveform = np.nan_to_num(waveform, nan=0.0, posinf=0.0, neginf=0.0)
+            # Check if extracted waveform is purely silent
+            if np.max(np.abs(waveform)) < 1e-5:
+                logger.info("[AUDIO_EXTRACTION_SILENT] Extracted waveform from %s is purely silent.", video_path_str)
+                self.last_extraction_success = False
+            else:
+                self.last_extraction_success = True
         except Exception as e:
-            # If audio extraction fails, return silence
-            print(f"Warning: Could not extract audio from {video_path}: {e}")
+            logger.warning("[AUDIO_EXTRACTION_UNAVAILABLE] Could not extract audio from %s: %s", video_path_str, e)
             waveform = np.zeros(self.target_length, dtype=np.float32)
+            self.last_extraction_success = False
 
         # Ensure correct length (pad or truncate)
         if len(waveform) < self.target_length:
-            # Pad with zeros (silence)
             padding = self.target_length - len(waveform)
-            waveform = np.pad(waveform, (0, padding), mode='constant')
+            waveform = np.pad(waveform, (0, padding), mode="constant")
         elif len(waveform) > self.target_length:
-            # Truncate
             waveform = waveform[:self.target_length]
 
-        # Convert to tensor
         waveform = torch.from_numpy(waveform).float()
-
         return waveform
 
 

@@ -1,0 +1,68 @@
+{
+  "experiment_id": "EXP_MICROLENS_TEXT_COENGAGEMENT_V1",
+  "experiment_type": "text_only_metadata_coengagement",
+  "timestamp_utc": "2026-10-09T09:29:53.656637+00:00",
+  "total_training_duration_seconds": 1.36,
+  "pretrained_backbone": "bert-base-uncased",
+  "pretrained_weights_verified": true,
+  "feature_dim": 512,
+  "trainable_parameters": 984320,
+  "frozen_backbone_parameters": 109482240,
+  "dataset_statistics": {
+    "total_users_in_dataset": 50000,
+    "eligible_users_total": 26299,
+    "selected_users": 1000,
+    "train_users": 800,
+    "val_users": 100,
+    "test_users": 100,
+    "train_pairs": 1674,
+    "val_pairs": 200,
+    "test_pairs": 191,
+    "unique_participating_items": 2960
+  },
+  "epochs_completed": 4,
+  "best_epoch": 1,
+  "best_val_loss": 3.58738,
+  "history": [
+    {
+      "epoch": 1,
+      "train_loss": 4.05413,
+      "val_loss": 3.58738,
+      "lr": 9.054634122155993e-05,
+      "duration_seconds": 0.33
+    },
+    {
+      "epoch": 2,
+      "train_loss": 3.94437,
+      "val_loss": 3.64136,
+      "lr": 6.579634122155992e-05,
+      "duration_seconds": 0.32
+    },
+    {
+      "epoch": 3,
+      "train_loss": 3.83857,
+      "val_loss": 3.72196,
+      "lr": 3.520365877844012e-05,
+      "duration_seconds": 0.33
+    },
+    {
+      "epoch": 4,
+      "train_loss": 3.77203,
+      "val_loss": 3.7622,
+      "lr": 1.045365877844011e-05,
+      "duration_seconds": 0.32
+    }
+  ],
+  "args": {
+    "max_users": 1000,
+    "epochs": 5,
+    "batch_size": 64,
+    "lr": 0.0001,
+    "weight_decay": 1e-05,
+    "temperature": 0.07,
+    "seed": 42,
+    "checkpoint_dir": "data/checkpoints/EXP_MICROLENS_TEXT_COENGAGEMENT_V1",
+    "cache_dir": "data/cache",
+    "patience": 3
+  }
+}

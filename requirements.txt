@@ -11,6 +11,8 @@ opencv-python>=4.8.0  # Extract frames from videos
 av>=10.0.0  # PyAV - video/audio reading
 librosa>=0.10.0  # Audio analysis
 soundfile>=0.12.0  # Audio I/O
+yt-dlp>=2024.0.0  # Controlled media acquisition
+youtube-transcript-api>=0.6.0  # YouTube caption/transcript retrieval
 
 # Data Processing
 numpy>=1.24.0

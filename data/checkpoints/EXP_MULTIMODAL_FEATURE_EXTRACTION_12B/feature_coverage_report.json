@@ -1,0 +1,55 @@
+{
+  "experiment_id": "EXP_MULTIMODAL_FEATURE_EXTRACTION_12B",
+  "phase": "12B",
+  "timestamp": "2026-10-12T06:12:18.493913",
+  "audit_duration_seconds": 0.1827,
+  "catalog_summary": {
+    "total_catalog_records": 2983,
+    "eligible_video_records": 25,
+    "ready_thumbnails": 25,
+    "ready_audio_files": 10,
+    "ready_frames": 200,
+    "eligible_frame_sequences_8_frames": 25
+  },
+  "feature_extraction_summary": {
+    "total_features_persisted": 135,
+    "valid_features": 135,
+    "invalid_features": 0,
+    "stale_features": 0,
+    "checksum_mismatches": 0,
+    "trained_pretrained_features": 50,
+    "untrained_projection_features": 85
+  },
+  "modality_breakdown": {
+    "VISUAL_FRAMES": 50,
+    "VISUAL_THUMBNAIL": 50,
+    "CLIP_THUMBNAIL": 25,
+    "AUDIO": 10
+  },
+  "feature_type_breakdown": {
+    "resnet50_projected_512": 25,
+    "resnet50_thumbnail_2048": 25,
+    "resnet50_thumbnail_512": 25,
+    "clip_thumbnail_512": 25,
+    "resnet50_mean_2048": 25,
+    "wav2vec2_mean_512": 10
+  },
+  "dimension_breakdown": {
+    "512": 85,
+    "2048": 50
+  },
+  "encoder_identities": {
+    "torchvision_resnet50_projected:1.0.0": "untrained_projection_head",
+    "torchvision_resnet50:IMAGENET1K_V1": "torch_hub_resnet50-0676ba61",
+    "clip_vision_base:1.0.0": "offline_clip_architecture",
+    "facebook_wav2vec2_base:1.0.0": "wav2vec2_architecture_eval"
+  },
+  "audio_status_note": "Audio assets in current catalog contain zero/silent signals due to offline Windows environment without ffmpeg demuxing; silent waveforms were explicitly rejected without fabricating fake vectors. Wav2Vec2 extraction pipeline validated via non-silent acoustic tests.",
+  "storage_footprint": {
+    "physical_media_storage_bytes": 102758534,
+    "physical_media_storage_mb": 98.0,
+    "feature_vectors_approx_bytes": 583680,
+    "feature_vectors_approx_kb": 570.0
+  },
+  "status": "PASS"
+}

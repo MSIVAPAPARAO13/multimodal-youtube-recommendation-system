@@ -1,0 +1,29 @@
+{
+  "job_id": "213dd016",
+  "status": "PARTIAL_FAILURE",
+  "total": 3,
+  "completed": 0,
+  "failed": 3,
+  "skipped": 0,
+  "results": [],
+  "errors": [
+    {
+      "status": "FAILED",
+      "video_id": "v2",
+      "error": "Invalid YouTube video ID format: 'v2'"
+    },
+    {
+      "status": "FAILED",
+      "video_id": "v1",
+      "error": "Invalid YouTube video ID format: 'v1'"
+    },
+    {
+      "status": "FAILED",
+      "video_id": "v3",
+      "error": "Invalid YouTube video ID format: 'v3'"
+    }
+  ],
+  "skipped_items": [],
+  "started_at": "2026-10-10T10:05:21.588131",
+  "completed_at": "2026-10-10T10:05:24.695782"
+}

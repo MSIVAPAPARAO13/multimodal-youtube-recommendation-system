@@ -1,0 +1,122 @@
+[
+  {
+    "video_id": "py_01",
+    "category": "python_programming",
+    "title": "Python AsyncIO and Concurrency Deep Dive",
+    "description": "Master asynchronous event loops, coroutines, and tasks in modern Python 3.12.",
+    "tags": ["python", "asyncio", "concurrency", "multithreading"],
+    "transcript": "In this video we explore how Python asyncio manages concurrent execution with event loops and non-blocking sockets. We contrast threads with cooperative multitasking and profile asyncio gather versus TaskGroups."
+  },
+  {
+    "video_id": "py_02",
+    "category": "python_programming",
+    "title": "Object-Oriented Design and Design Patterns in Python",
+    "description": "Learn clean code patterns, factory methods, singleton, and dependency injection in Python.",
+    "tags": ["python", "oop", "design-patterns", "clean-code"],
+    "transcript": "Today we will break down standard object oriented principles in Python, covering inheritance, composition, and structural patterns. We show why composition is preferred over inheritance for flexible software architecture."
+  },
+  {
+    "video_id": "py_03",
+    "category": "python_programming",
+    "title": "Building High-Performance Python CLI Tools with Typer and Rich",
+    "description": "Create terminal command line interfaces with automatic help, beautiful terminal color tables, and progress bars.",
+    "tags": ["python", "cli", "typer", "rich", "scripting"],
+    "transcript": "Let us build an interactive command line utility using Python typer and rich formatting libraries. We handle argument parsing, type validation, ANSI colors, and animated spinners for long-running scripts."
+  },
+  {
+    "video_id": "ml_01",
+    "category": "machine_learning",
+    "title": "Deep Residual Networks: ResNet Architecture and Residual Connections",
+    "description": "Understanding vanishing gradient solutions, skip connections, and convolutional feature representations in PyTorch.",
+    "tags": ["machine-learning", "deep-learning", "resnet", "pytorch", "computer-vision"],
+    "transcript": "In this lecture we analyze residual networks and skip connections that allow training of networks with over 50 layers. We walk through identity mappings, bottleneck residual blocks, and spatial pooling in PyTorch."
+  },
+  {
+    "video_id": "ml_02",
+    "category": "machine_learning",
+    "title": "Transformer Attention Mechanisms: Self-Attention and Multi-Head Projections",
+    "description": "Mathematical breakdown of scaled dot-product attention, query-key-value tensors, and BERT token embeddings.",
+    "tags": ["machine-learning", "transformers", "bert", "nlp", "deep-learning"],
+    "transcript": "Here we trace the matrix mathematics of multi-head self-attention used by BERT and GPT foundation models. We examine how queries, keys, and values interact and how token embeddings capture semantic context across sentences."
+  },
+  {
+    "video_id": "ml_03",
+    "category": "machine_learning",
+    "title": "Contrastive Representation Learning and Multimodal Fusion",
+    "description": "InfoNCE loss, Siamese two-tower architectures, and cross-modal embedding alignment for recommender systems.",
+    "tags": ["machine-learning", "contrastive-learning", "multimodal", "recommendation", "infonce"],
+    "transcript": "We demonstrate how contrastive InfoNCE loss aligns representations across visual, acoustic, and textual modalities into a shared vector space. We review temperature hyperparameter tuning and hard negative mining for retrieval."
+  },
+  {
+    "video_id": "sec_01",
+    "category": "cybersecurity",
+    "title": "Web Application Penetration Testing: SQL Injection and XSS Prevention",
+    "description": "Defending against OWASP Top 10 vulnerabilities, parameterized queries, and Content Security Policy.",
+    "tags": ["cybersecurity", "appsec", "sql-injection", "xss", "owasp"],
+    "transcript": "In this defensive security tutorial we analyze how untrusted client inputs cause SQL injections and how prepared statements remediate the vulnerability. We also configure Content Security Policies to block Cross-Site Scripting."
+  },
+  {
+    "video_id": "sec_02",
+    "category": "cybersecurity",
+    "title": "Network Security: Wireshark Packet Analysis and TLS Handshakes",
+    "description": "Inspecting TCP streams, analyzing cryptographic ciphers, and detecting packet anomalies in enterprise networks.",
+    "tags": ["cybersecurity", "networking", "wireshark", "tls", "packet-analysis"],
+    "transcript": "We capture network traffic in Wireshark and step through the TLS 1.3 key exchange and cipher suite negotiation. We inspect TCP SYN-ACK flags, identify unencrypted credentials, and detect port scanning behaviors."
+  },
+  {
+    "video_id": "sec_03",
+    "category": "cybersecurity",
+    "title": "Zero Trust Architecture and Identity Access Management",
+    "description": "Implementing RBAC, multi-factor authentication, and least-privilege principles across cloud perimeters.",
+    "tags": ["cybersecurity", "zero-trust", "iam", "authentication", "security"],
+    "transcript": "Zero trust assumes breach and verifies explicitly, ensuring microsegmentation and continuous token validation for every request. We explore role-based access control, OAuth2 token rotation, and identity lifecycle governance."
+  },
+  {
+    "video_id": "web_01",
+    "category": "web_development",
+    "title": "Full-Stack Web Development with React and FastAPI",
+    "description": "Building responsive single page applications with React state hooks connected to FastAPI RESTful endpoints.",
+    "tags": ["web-development", "react", "fastapi", "fullstack", "javascript"],
+    "transcript": "In this tutorial we wire up a modern React frontend with TailwindCSS to a high performance Python FastAPI backend service. We manage asynchronous fetch requests, client-side caching, and JWT bearer authentication."
+  },
+  {
+    "video_id": "web_02",
+    "category": "web_development",
+    "title": "CSS Grid and Flexbox Masterclass for Responsive Layouts",
+    "description": "Modern CSS layout techniques, container queries, and mobile-first responsive design strategies.",
+    "tags": ["web-development", "css", "html", "responsive-design", "frontend"],
+    "transcript": "We dive deep into CSS grid templates, fractional units, and flexbox alignment to build fluid user interfaces across all screen sizes. We configure media queries and modern container queries for reusable component layouts."
+  },
+  {
+    "video_id": "web_03",
+    "category": "web_development",
+    "title": "RESTful API Design Best Practices and OpenAPI Documentation",
+    "description": "Designing idempotent HTTP endpoints, versioning APIs, status code semantics, and OpenAPI specifications.",
+    "tags": ["web-development", "api", "rest", "openapi", "backend"],
+    "transcript": "Designing robust web APIs requires strict adherence to HTTP verbs, resource naming conventions, and pagination standards. We cover 200 OK versus 201 Created and how automatic OpenAPI documentation helps client integration."
+  },
+  {
+    "video_id": "cloud_01",
+    "category": "cloud_computing",
+    "title": "Docker Containerization and Multi-Stage Production Builds",
+    "description": "Creating minimal, secure Docker images using multi-stage builds, non-root users, and layer caching.",
+    "tags": ["cloud-computing", "docker", "devops", "containers", "ci-cd"],
+    "transcript": "Here we optimize a Python container using multi-stage Docker builds, stripping compilation toolchains to achieve small attack surfaces. We configure non-root runtime users and cache dependency layers effectively."
+  },
+  {
+    "video_id": "cloud_02",
+    "category": "cloud_computing",
+    "title": "Kubernetes Cluster Architecture: Pods, Services, and Ingress Controllers",
+    "description": "Deploying scalable microservices with Kubernetes deployments, replica sets, and Envoy ingress routing.",
+    "tags": ["cloud-computing", "kubernetes", "k8s", "microservices", "devops"],
+    "transcript": "This guide covers Kubernetes core primitives, showing how kube-scheduler assigns pods across nodes and how services provide stable DNS endpoints. We configure horizontal pod autoscaling and rolling update deployments."
+  },
+  {
+    "video_id": "cloud_03",
+    "category": "cloud_computing",
+    "title": "Terraform Infrastructure as Code for Cloud Resource Provisioning",
+    "description": "Declarative infrastructure provisioning across AWS and Google Cloud using Terraform state modules.",
+    "tags": ["cloud-computing", "terraform", "iac", "cloud", "devops"],
+    "transcript": "We write declarative Terraform configurations to manage VPC networks, subnets, and database clusters idempotently. We walk through plan, apply, state locking in remote backends, and modular resource definitions."
+  }
+]

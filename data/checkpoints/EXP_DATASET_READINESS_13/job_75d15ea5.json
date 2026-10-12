@@ -1,0 +1,29 @@
+{
+  "job_id": "75d15ea5",
+  "status": "PARTIAL_FAILURE",
+  "total": 3,
+  "completed": 0,
+  "failed": 3,
+  "skipped": 0,
+  "results": [],
+  "errors": [
+    {
+      "status": "FAILED",
+      "video_id": "v1",
+      "error": "YouTubeIngestionService.ingest_video() got an unexpected keyword argument 'canonical_id'"
+    },
+    {
+      "status": "FAILED",
+      "video_id": "v2",
+      "error": "YouTubeIngestionService.ingest_video() got an unexpected keyword argument 'canonical_id'"
+    },
+    {
+      "status": "FAILED",
+      "video_id": "v3",
+      "error": "YouTubeIngestionService.ingest_video() got an unexpected keyword argument 'canonical_id'"
+    }
+  ],
+  "skipped_items": [],
+  "started_at": "2026-10-10T09:35:17.272114",
+  "completed_at": "2026-10-10T09:35:20.505574"
+}

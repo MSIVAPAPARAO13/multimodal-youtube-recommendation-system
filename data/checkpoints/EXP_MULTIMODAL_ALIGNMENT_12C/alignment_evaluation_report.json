@@ -1,0 +1,73 @@
+{
+  "experiment_id": "EXP_MULTIMODAL_ALIGNMENT_12C",
+  "phase": "12C",
+  "timestamp": "2026-10-10T09:05:11.950873",
+  "duration_seconds": 3.2927,
+  "provenance_audit": {
+    "phase_8c_checkpoint_sha256": "a82037eb790e2a23e133b8edc9973a0e6fdc3c466058abd61b68aed77d2d4996",
+    "phase_8c_checkpoint_intact": true,
+    "total_persisted_visual_features": 85,
+    "resnet50_mean_2048_count": 17,
+    "resnet50_projected_512_count": 17,
+    "resnet50_thumbnail_2048_count": 17,
+    "resnet50_thumbnail_512_count": 17,
+    "clip_thumbnail_512_count": 17,
+    "audio_feature_count": 0,
+    "audio_blocker_reason": "Zero/silent audio signals rejected in Phase 12B without fabricating fake vectors."
+  },
+  "experiment_a_visual_retrieval": {
+    "query_video_count": 17,
+    "feature_type": "resnet50_mean_2048",
+    "dimension": 2048,
+    "query_exclusion_verified": true,
+    "deterministic_tie_breaking_verified": true,
+    "mean_intra_category_cosine_similarity": 0.999,
+    "mean_inter_category_cosine_similarity": 0.5403,
+    "separation_margin": 0.4587,
+    "top1_intra_category_retrieval_rate": 1.0,
+    "evaluation_nature": "descriptive_unsupervised_consistency",
+    "ground_truth_relevance_labels_available": false,
+    "status": "PASS"
+  },
+  "experiment_b_cross_modal_alignment": {
+    "architecture": "RidgeRegression_LinearProjection_2048_to_512",
+    "sample_size_total": 17,
+    "train_count": 11,
+    "validation_count": 3,
+    "test_count": 3,
+    "split_integrity": "strictly_video_disjoint_zero_frame_leakage",
+    "selected_alpha": 0.01,
+    "validation_mean_cosine_similarity": 0.9601,
+    "held_out_test_mean_cosine_similarity": 0.791,
+    "random_projection_test_similarity": -0.0387,
+    "untrained_projection_head_test_similarity": 0.0469,
+    "test_cross_modal_top1_accuracy": 0.6667,
+    "alignment_gain_over_random": 0.8298,
+    "generalization_verdict": "EXPLORATORY_ONLY",
+    "generalization_limitation": "N=17 is an exploratory sample; overfitting cannot be ruled out with 11 training videos. Generalization cannot be scientifically asserted for production.",
+    "status": "PARTIAL_EXPLORATORY"
+  },
+  "experiment_c_user_personalization_compatibility": {
+    "text_profile_dimension": 512,
+    "raw_visual_feature_dimension": 2048,
+    "direct_cosine_possible": false,
+    "reason": "Dimension mismatch (512 vs 2048) and incompatible embedding spaces.",
+    "clip_thumbnail_dimension": 512,
+    "clip_direct_cosine_valid": false,
+    "clip_incompatibility_reason": "Equal dimensionality (512-D) does NOT imply semantic compatibility. CLIP thumbnail features exist in OpenAI visual space, while user profiles exist in Phase 8C co-engagement text space.",
+    "production_visual_weight": 0.0,
+    "production_audio_weight": 0.0,
+    "production_text_weight": 0.9,
+    "production_metadata_weight": 0.1,
+    "decision": "Cross-modal user-profile ranking disabled in production defaults. Text-only personalization strictly preserved."
+  },
+  "production_weights_recommendation": {
+    "w_text": 0.9,
+    "w_visual": 0.0,
+    "w_audio": 0.0,
+    "w_metadata": 0.1,
+    "rationale": "Visual features are exploratory (N=17); audio features are unavailable (0 catalog coverage). Production weights must remain zero until large-scale multimodal supervision is verified."
+  },
+  "phase_status": "PASS",
+  "alignment_status": "PARTIAL_EXPLORATORY"
+}

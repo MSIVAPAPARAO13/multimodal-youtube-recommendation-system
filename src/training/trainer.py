@@ -1,331 +1,274 @@
 """
-Training Loop for Two-Tower Model
+Multimodal Contrastive Trainer.
 
-This handles:
-- Training epochs
-- Validation
-- Checkpointing
-- Logging to TensorBoard
+Coordinates training and validation of TwoTowerModel / VideoTower components:
+- Trains projection heads and GatedFusion parameters while keeping backbones frozen by default
+- Feeds genuine positive pairs with false-negative suppression
+- Handles missing modalities via explicit modality masks
+- Enforces gradient clipping, early stopping, and secure checkpointing
 """
 
-import os
-import time
+import logging
 from pathlib import Path
+import time
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import torch
 import torch.nn as nn
-from torch.utils.data import DataLoader
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import CosineAnnealingLR
-from tqdm import tqdm
+from torch.utils.data import DataLoader
 
-try:
-    from torch.utils.tensorboard import SummaryWriter
-    HAS_TENSORBOARD = True
-except ImportError:
-    HAS_TENSORBOARD = False
+from src.models.two_tower import TwoTowerModel
+from src.training.checkpoint import CheckpointManager, CheckpointMetadata
+from src.training.losses import ContrastiveLoss, InfoNCELoss
+from src.utils.device import get_device
 
-from .losses import ContrastiveLoss
-
-import sys
-from pathlib import Path
-sys.path.append(str(Path(__file__).parent.parent))
-from utils.device import get_device
+logger = logging.getLogger(__name__)
 
 
 class Trainer:
     """
-    Trainer for the Two-Tower recommendation model.
-
-    Args:
-        model: TwoTowerModel instance
-        train_loader: DataLoader for training data
-        val_loader: DataLoader for validation data (optional)
-        learning_rate: Initial learning rate
-        weight_decay: L2 regularization
-        num_epochs: Number of training epochs
-        checkpoint_dir: Where to save model checkpoints
-        log_dir: Where to save TensorBoard logs
-        device: 'cuda' or 'cpu'
+    Contrastive Trainer for Multimodal YouTube Recommendation Model.
     """
 
     def __init__(
         self,
-        model: nn.Module,
+        model: TwoTowerModel,
         train_loader: DataLoader,
-        val_loader: DataLoader = None,
+        val_loader: Optional[DataLoader] = None,
         learning_rate: float = 1e-4,
-        weight_decay: float = 0.01,
+        weight_decay: float = 1e-5,
+        temperature: float = 0.07,
         num_epochs: int = 10,
-        checkpoint_dir: str = "checkpoints",
-        log_dir: str = "logs",
-        device: str = None
+        early_stopping_patience: int = 3,
+        checkpoint_dir: str = "data/checkpoints",
+        device: Optional[Union[str, torch.device]] = None,
+        max_grad_norm: float = 1.0,
+        freeze_backbones: bool = True,
     ):
-        # Set device (supports CUDA, MPS, and CPU)
         if device is None:
             self.device = get_device()
-        else:
+        elif isinstance(device, str):
             self.device = torch.device(device)
+        else:
+            self.device = device
 
-        # Model
         self.model = model.to(self.device)
-
-        # Data
         self.train_loader = train_loader
         self.val_loader = val_loader
-
-        # Training params
         self.num_epochs = num_epochs
+        self.early_stopping_patience = early_stopping_patience
+        self.max_grad_norm = max_grad_norm
         self.learning_rate = learning_rate
 
-        # Loss function
-        self.criterion = ContrastiveLoss(temperature=0.07, symmetric=True)
+        # Configure backbone freezing
+        if freeze_backbones:
+            self._freeze_backbones()
 
-        # Optimizer (AdamW is standard for transformers)
+        # Optimizer: collect only parameters that require gradients (projection heads + fusion)
+        trainable_params = [p for p in self.model.parameters() if p.requires_grad]
+        if not trainable_params:
+            raise ValueError("No trainable parameters found in model!")
+
         self.optimizer = AdamW(
-            self.model.parameters(),
+            trainable_params,
             lr=learning_rate,
-            weight_decay=weight_decay
+            weight_decay=weight_decay,
         )
 
-        # Learning rate scheduler (cosine decay)
-        total_steps = len(train_loader) * num_epochs
+        total_steps = max(len(train_loader) * num_epochs, 1)
         self.scheduler = CosineAnnealingLR(
             self.optimizer,
             T_max=total_steps,
-            eta_min=learning_rate / 100
+            eta_min=learning_rate * 0.01,
         )
 
-        # Checkpointing
-        self.checkpoint_dir = Path(checkpoint_dir)
-        self.checkpoint_dir.mkdir(parents=True, exist_ok=True)
+        self.criterion = ContrastiveLoss(temperature=temperature, symmetric=True)
+        self.checkpoint_manager = CheckpointManager(
+            checkpoint_dir=checkpoint_dir,
+            feature_dim=self.model.feature_dim,
+            fusion_type=self.model.fusion_type,
+        )
 
-        # Logging
-        self.log_dir = Path(log_dir)
-        self.log_dir.mkdir(parents=True, exist_ok=True)
-
-        if HAS_TENSORBOARD:
-            self.writer = SummaryWriter(self.log_dir)
-        else:
-            self.writer = None
-            print("TensorBoard not available. Install with: pip install tensorboard")
-
-        # Track best model
-        self.best_val_loss = float('inf')
+        self.best_val_loss = float("inf")
+        self.patience_counter = 0
         self.global_step = 0
+        self.history: List[Dict[str, Any]] = []
+
+    def _freeze_backbones(self) -> None:
+        """Ensure heavy pre-trained backbones are frozen to train only projection and fusion."""
+        towers = [self.model.video_tower]
+        if hasattr(self.model, "query_tower") and self.model.query_tower is not self.model.video_tower:
+            towers.append(self.model.query_tower)
+
+        for tower in towers:
+            if hasattr(tower, "video_encoder") and hasattr(tower.video_encoder, "backbone"):
+                for p in tower.video_encoder.backbone.parameters():
+                    p.requires_grad = False
+            if hasattr(tower, "audio_encoder") and hasattr(tower.audio_encoder, "backbone"):
+                for p in tower.audio_encoder.backbone.parameters():
+                    p.requires_grad = False
+            if hasattr(tower, "text_encoder") and hasattr(tower.text_encoder, "backbone"):
+                for p in tower.text_encoder.backbone.parameters():
+                    p.requires_grad = False
 
     def train_epoch(self, epoch: int) -> float:
-        """
-        Train for one epoch.
-
-        Returns:
-            average_loss: Mean loss over the epoch
-        """
+        """Run a single training epoch with genuine positive pairs and gradient clipping."""
         self.model.train()
-        total_loss = 0
+        total_loss = 0.0
         num_batches = 0
 
-        # Progress bar
-        pbar = tqdm(self.train_loader, desc=f"Epoch {epoch+1}/{self.num_epochs}")
+        for batch in self.train_loader:
+            loss = self._process_batch(batch, is_training=True)
 
-        for batch in pbar:
-            # Move data to device
-            frames = batch["frames"].to(self.device)
-            audio = batch["audio"].to(self.device)
-            titles = batch["title"]  # List of strings
+            if torch.isnan(loss) or torch.isinf(loss):
+                raise FloatingPointError(f"Encountered non-finite loss: {loss.item()} at step {self.global_step}")
 
-            # For contrastive learning, we need pairs
-            # Simple approach: use augmentation or split batch
-            # Here we use in-batch negatives (each video is negative for others)
-
-            # Encode all videos
-            embeddings = self.model.encode_video(frames, audio, titles)
-
-            # Create positive pairs by adding noise (simple augmentation)
-            # In practice, you'd use proper augmentation or paired data
-            noise = torch.randn_like(embeddings) * 0.1
-            positive_embeddings = embeddings + noise
-            positive_embeddings = nn.functional.normalize(positive_embeddings, dim=1)
-
-            # Compute loss
-            loss = self.criterion(embeddings, positive_embeddings)
-
-            # Backward pass
             self.optimizer.zero_grad()
             loss.backward()
 
-            # Gradient clipping (prevents exploding gradients)
-            torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
+            if self.max_grad_norm > 0:
+                torch.nn.utils.clip_grad_norm_(
+                    [p for p in self.model.parameters() if p.requires_grad],
+                    max_norm=self.max_grad_norm,
+                )
 
             self.optimizer.step()
             self.scheduler.step()
 
-            # Track metrics
             total_loss += loss.item()
             num_batches += 1
             self.global_step += 1
 
-            # Update progress bar
-            pbar.set_postfix({
-                'loss': f'{loss.item():.4f}',
-                'lr': f'{self.scheduler.get_last_lr()[0]:.2e}'
-            })
-
-            # Log to TensorBoard
-            if self.writer and self.global_step % 10 == 0:
-                self.writer.add_scalar('train/loss', loss.item(), self.global_step)
-                self.writer.add_scalar('train/lr', self.scheduler.get_last_lr()[0], self.global_step)
-
-        return total_loss / num_batches
+        return total_loss / max(num_batches, 1)
 
     @torch.no_grad()
     def validate(self) -> float:
-        """
-        Run validation.
-
-        Returns:
-            average_loss: Mean loss over validation set
-        """
-        if self.val_loader is None:
+        """Compute validation loss across validation dataset."""
+        if self.val_loader is None or len(self.val_loader) == 0:
             return 0.0
 
         self.model.eval()
-        total_loss = 0
+        total_loss = 0.0
         num_batches = 0
 
-        for batch in tqdm(self.val_loader, desc="Validating"):
-            frames = batch["frames"].to(self.device)
-            audio = batch["audio"].to(self.device)
-            titles = batch["title"]
-
-            embeddings = self.model.encode_video(frames, audio, titles)
-
-            # Same augmentation as training for fair comparison
-            noise = torch.randn_like(embeddings) * 0.1
-            positive_embeddings = embeddings + noise
-            positive_embeddings = nn.functional.normalize(positive_embeddings, dim=1)
-
-            loss = self.criterion(embeddings, positive_embeddings)
-
+        for batch in self.val_loader:
+            loss = self._process_batch(batch, is_training=False)
             total_loss += loss.item()
             num_batches += 1
 
-        avg_loss = total_loss / num_batches
+        return total_loss / max(num_batches, 1)
 
-        if self.writer:
-            self.writer.add_scalar('val/loss', avg_loss, self.global_step)
-
-        return avg_loss
-
-    def save_checkpoint(self, epoch: int, val_loss: float, is_best: bool = False):
-        """Save model checkpoint."""
-        checkpoint = {
-            'epoch': epoch,
-            'model_state_dict': self.model.state_dict(),
-            'optimizer_state_dict': self.optimizer.state_dict(),
-            'scheduler_state_dict': self.scheduler.state_dict(),
-            'val_loss': val_loss,
-            'global_step': self.global_step
-        }
-
-        # Save latest
-        path = self.checkpoint_dir / 'latest.pt'
-        torch.save(checkpoint, path)
-
-        # Save best
-        if is_best:
-            path = self.checkpoint_dir / 'best.pt'
-            torch.save(checkpoint, path)
-            print(f"  New best model saved (val_loss: {val_loss:.4f})")
-
-        # Save periodic checkpoint
-        if (epoch + 1) % 5 == 0:
-            path = self.checkpoint_dir / f'epoch_{epoch+1}.pt'
-            torch.save(checkpoint, path)
-
-    def load_checkpoint(self, path: str):
-        """Load model from checkpoint."""
-        checkpoint = torch.load(path, map_location=self.device)
-
-        self.model.load_state_dict(checkpoint['model_state_dict'])
-        self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-        self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
-        self.global_step = checkpoint['global_step']
-
-        print(f"Loaded checkpoint from {path}")
-        print(f"  Epoch: {checkpoint['epoch']}, Val Loss: {checkpoint['val_loss']:.4f}")
-
-        return checkpoint['epoch']
-
-    def train(self):
+    def _process_batch(self, batch: Dict[str, Any], is_training: bool) -> torch.Tensor:
         """
-        Full training loop.
-
-        Returns:
-            best_val_loss: Best validation loss achieved
+        Process a batch:
+        Supports either:
+        1. Paired input with 'anchor_*' and 'positive_*'
+        2. Direct batch embeddings
         """
-        print(f"\nStarting training for {self.num_epochs} epochs...")
-        print(f"Training samples: {len(self.train_loader.dataset)}")
-        if self.val_loader:
-            print(f"Validation samples: {len(self.val_loader.dataset)}")
-        print()
+        if "anchor_visual" in batch and "positive_visual" in batch:
+            # Paired multimodal batch
+            a_v = batch["anchor_visual"].to(self.device)
+            a_a = batch["anchor_audio"].to(self.device)
+            a_t = batch["anchor_text"].to(self.device)
 
+            p_v = batch["positive_visual"].to(self.device)
+            p_a = batch["positive_audio"].to(self.device)
+            p_t = batch["positive_text"].to(self.device)
+
+            # Pass through towers or fusion
+            # When inputs are already 512-d embeddings, pass directly to fusion
+            a_emb = self.model.video_tower.fusion(a_v, a_a, a_t)
+            p_emb = self.model.query_tower.fusion(p_v, p_a, p_t)
+
+            a_emb = nn.functional.normalize(a_emb, p=2, dim=-1)
+            p_emb = nn.functional.normalize(p_emb, p=2, dim=-1)
+
+            loss = self.criterion(a_emb, p_emb)
+            return loss
+
+        elif "visual" in batch:
+            # Single-stream self-contrast (loss against identical vector) is mathematically degenerate
+            # and does NOT represent genuine recommendation relevance. We explicitly reject ungrounded
+            # single-stream training to prevent presenting synthetic/trivial loss as trained relevance.
+            raise ValueError(
+                "Degenerate single-stream batch detected. Contrastive recommendation training strictly requires "
+                "genuine positive pairs ('anchor_*' and 'positive_*') derived from user co-engagement or interaction data. "
+                "Synthetic self-contrast and noise-augmented pairs are disabled to preserve model integrity."
+            )
+
+        else:
+            raise KeyError("Unsupported batch keys for contrastive training. Expected paired 'anchor_*' and 'positive_*' inputs.")
+
+    def fit(self) -> Dict[str, Any]:
+        """
+        Execute full training loop with early stopping.
+        """
         start_time = time.time()
+        logger.info("Starting training loop for %d epochs...", self.num_epochs)
 
-        for epoch in range(self.num_epochs):
-            epoch_start = time.time()
-
-            # Train
+        best_epoch = 0
+        for epoch in range(1, self.num_epochs + 1):
             train_loss = self.train_epoch(epoch)
-
-            # Validate
             val_loss = self.validate()
 
-            # Check if best
+            current_lr = self.scheduler.get_last_lr()[0]
+            record = {
+                "epoch": epoch,
+                "train_loss": round(train_loss, 5),
+                "val_loss": round(val_loss, 5),
+                "lr": current_lr,
+            }
+            self.history.append(record)
+
+            logger.info("Epoch %d/%d: train_loss=%.4f, val_loss=%.4f, lr=%.2e", epoch, self.num_epochs, train_loss, val_loss, current_lr)
+
             is_best = val_loss < self.best_val_loss
             if is_best:
                 self.best_val_loss = val_loss
+                best_epoch = epoch
+                self.patience_counter = 0
+                self.checkpoint_manager.save_checkpoint(
+                    model=self.model,
+                    optimizer=self.optimizer,
+                    epoch=epoch,
+                    global_step=self.global_step,
+                    val_loss=val_loss,
+                    is_best=True,
+                )
+            else:
+                self.patience_counter += 1
+                if self.patience_counter >= self.early_stopping_patience:
+                    logger.info("Early stopping triggered at epoch %d (patience=%d)", epoch, self.early_stopping_patience)
+                    break
 
-            # Save checkpoint
-            self.save_checkpoint(epoch, val_loss, is_best)
+        elapsed = time.time() - start_time
+        return {
+            "total_epochs": len(self.history),
+            "best_epoch": best_epoch,
+            "best_val_loss": self.best_val_loss,
+            "duration_seconds": elapsed,
+            "history": self.history,
+        }
 
-            # Log epoch summary
-            epoch_time = time.time() - epoch_start
-            print(f"\nEpoch {epoch+1}/{self.num_epochs} complete in {epoch_time:.1f}s")
-            print(f"  Train Loss: {train_loss:.4f}")
-            if self.val_loader:
-                print(f"  Val Loss: {val_loss:.4f}")
-            print()
-
-        total_time = time.time() - start_time
-        print(f"Training complete in {total_time/60:.1f} minutes")
-        print(f"Best validation loss: {self.best_val_loss:.4f}")
-
-        if self.writer:
-            self.writer.close()
-
-        return self.best_val_loss
+    def train(self) -> float:
+        """Backward-compatible train method returning best_val_loss."""
+        res = self.fit()
+        return res["best_val_loss"]
 
 
-# Convenience function
 def train_model(
-    model,
-    train_loader,
-    val_loader=None,
-    num_epochs=10,
-    learning_rate=1e-4,
-    checkpoint_dir="checkpoints",
-    log_dir="logs"
-):
+    model: TwoTowerModel,
+    train_loader: DataLoader,
+    val_loader: Optional[DataLoader] = None,
+    num_epochs: int = 10,
+    learning_rate: float = 1e-4,
+    checkpoint_dir: str = "data/checkpoints",
+    **kwargs,
+) -> float:
     """
-    Train a model with default settings.
-
-    Example:
-        model = TwoTowerModel()
-        train_loader = create_dataloader("data/train.json", batch_size=32)
-        val_loader = create_dataloader("data/val.json", batch_size=32)
-
-        train_model(model, train_loader, val_loader, num_epochs=10)
+    Convenience function for backward compatibility.
     """
     trainer = Trainer(
         model=model,
@@ -334,7 +277,7 @@ def train_model(
         num_epochs=num_epochs,
         learning_rate=learning_rate,
         checkpoint_dir=checkpoint_dir,
-        log_dir=log_dir
+        **kwargs,
     )
-
     return trainer.train()
+

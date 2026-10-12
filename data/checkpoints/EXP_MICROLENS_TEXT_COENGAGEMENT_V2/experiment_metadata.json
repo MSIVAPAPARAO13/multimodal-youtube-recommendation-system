@@ -1,0 +1,143 @@
+{
+  "experiment_id": "EXP_MICROLENS_TEXT_COENGAGEMENT_V2",
+  "timestamp_utc": "2026-10-09T10:33:01.626503+00:00",
+  "total_training_duration_seconds": 1.9,
+  "architecture": "LinearProjectionModel",
+  "input_dim": 768,
+  "output_dim": 512,
+  "trainable_parameters": 393728,
+  "frozen_backbone": "bert-base-uncased",
+  "checkpoint_sha256": "a82037eb790e2a23e133b8edc9973a0e6fdc3c466058abd61b68aed77d2d4996",
+  "best_epoch": 5,
+  "best_val_score": 0.06911840441719211,
+  "history": [
+    {
+      "epoch": 1,
+      "train_loss": 3.99855,
+      "val_loss": 3.65728,
+      "val_metrics": {
+        "valid_queries": 199,
+        "MRR": 0.025724999879101235,
+        "Recall@1": 0.010050251256281407,
+        "Precision@1": 0.010050251256281407,
+        "NDCG@1": 0.010050251256281407,
+        "Recall@5": 0.04522613065326633,
+        "Precision@5": 0.009045226130653268,
+        "NDCG@5": 0.027599411405619313,
+        "Recall@10": 0.05025125628140704,
+        "Precision@10": 0.005025125628140704,
+        "NDCG@10": 0.029274453281666217
+      },
+      "val_score": 0.055,
+      "duration_seconds": 0.4,
+      "lr": 0.00027163902366468
+    },
+    {
+      "epoch": 2,
+      "train_loss": 3.71871,
+      "val_loss": 3.81019,
+      "val_metrics": {
+        "valid_queries": 199,
+        "MRR": 0.030299324454460427,
+        "Recall@1": 0.01507537688442211,
+        "Precision@1": 0.01507537688442211,
+        "NDCG@1": 0.01507537688442211,
+        "Recall@5": 0.04522613065326633,
+        "Precision@5": 0.009045226130653268,
+        "NDCG@5": 0.030460333224345982,
+        "Recall@10": 0.05527638190954774,
+        "Precision@10": 0.005527638190954774,
+        "NDCG@10": 0.033587962167316944
+      },
+      "val_score": 0.06389,
+      "duration_seconds": 0.36,
+      "lr": 0.0001973890236646799
+    },
+    {
+      "epoch": 3,
+      "train_loss": 3.47059,
+      "val_loss": 4.20348,
+      "val_metrics": {
+        "valid_queries": 199,
+        "MRR": 0.03323430590761931,
+        "Recall@1": 0.020100502512562814,
+        "Precision@1": 0.020100502512562814,
+        "NDCG@1": 0.020100502512562814,
+        "Recall@5": 0.04522613065326633,
+        "Precision@5": 0.009045226130653268,
+        "NDCG@5": 0.03262453703376002,
+        "Recall@10": 0.05527638190954774,
+        "Precision@10": 0.005527638190954774,
+        "NDCG@10": 0.03579503830798845
+      },
+      "val_score": 0.06903,
+      "duration_seconds": 0.36,
+      "lr": 0.00010561097633532041
+    },
+    {
+      "epoch": 4,
+      "train_loss": 3.28548,
+      "val_loss": 4.44527,
+      "val_metrics": {
+        "valid_queries": 199,
+        "MRR": 0.033263985033593235,
+        "Recall@1": 0.020100502512562814,
+        "Precision@1": 0.020100502512562814,
+        "NDCG@1": 0.020100502512562814,
+        "Recall@5": 0.04522613065326633,
+        "Precision@5": 0.009045226130653268,
+        "NDCG@5": 0.0322761780291037,
+        "Recall@10": 0.05527638190954774,
+        "Precision@10": 0.005527638190954774,
+        "NDCG@10": 0.03565141453108235
+      },
+      "val_score": 0.06892,
+      "duration_seconds": 0.37,
+      "lr": 3.136097633532036e-05
+    },
+    {
+      "epoch": 5,
+      "train_loss": 3.20631,
+      "val_loss": 4.51038,
+      "val_metrics": {
+        "valid_queries": 199,
+        "MRR": 0.03346698988610975,
+        "Recall@1": 0.020100502512562814,
+        "Precision@1": 0.020100502512562814,
+        "NDCG@1": 0.020100502512562814,
+        "Recall@5": 0.04522613065326633,
+        "Precision@5": 0.009045226130653268,
+        "NDCG@5": 0.0322761780291037,
+        "Recall@10": 0.05527638190954774,
+        "Precision@10": 0.005527638190954774,
+        "NDCG@10": 0.03565141453108235
+      },
+      "val_score": 0.06912,
+      "duration_seconds": 0.37,
+      "lr": 2.9999999999999997e-06
+    }
+  ],
+  "dataset_statistics": {
+    "total_users_in_dataset": 50000,
+    "eligible_users_total": 26299,
+    "selected_users": 1000,
+    "train_users": 800,
+    "val_users": 100,
+    "test_users": 100,
+    "train_pairs": 1674,
+    "val_pairs": 200,
+    "test_pairs": 191,
+    "unique_participating_items": 2960
+  },
+  "args": {
+    "max_users": 1000,
+    "epochs": 5,
+    "batch_size": 64,
+    "lr": 0.0003,
+    "weight_decay": 1e-05,
+    "temperature": 0.07,
+    "seed": 42,
+    "checkpoint_dir": "data/checkpoints/EXP_MICROLENS_TEXT_COENGAGEMENT_V2",
+    "cache_dir": "data/cache"
+  }
+}

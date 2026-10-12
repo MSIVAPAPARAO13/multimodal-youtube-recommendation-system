@@ -1,0 +1,58 @@
+{
+  "audit_timestamp": "2026-10-12T06:11:42.605352",
+  "pipeline_version": "12A",
+  "catalog_summary": {
+    "total_catalog_records": 2983,
+    "records_with_youtube_id": 23,
+    "records_with_extended_metadata": 25,
+    "records_without_media_source": 2958
+  },
+  "ingestion_jobs_summary": {
+    "total_jobs": 25,
+    "completed_or_ready": 25,
+    "failed": 0,
+    "pending": 0
+  },
+  "asset_coverage_summary": {
+    "total_registered_assets": 300,
+    "distinct_videos_with_assets": 25,
+    "video_assets": 25,
+    "audio_assets": 25,
+    "thumbnail_assets": 25,
+    "extracted_frame_assets": 200,
+    "metadata_assets": 25,
+    "coverage_percentages": {
+      "thumbnails": 0.84,
+      "video_media": 0.84,
+      "audio_media": 0.84,
+      "frame_media": 0.84
+    }
+  },
+  "storage_and_integrity": {
+    "disk_files_verified": 300,
+    "disk_files_missing": 0,
+    "checksum_matches": 300,
+    "checksum_mismatches": 0,
+    "total_storage_bytes": 102103172,
+    "total_storage_mb": 97.37,
+    "storage_by_modality_bytes": {
+      "VIDEO": 59994685,
+      "AUDIO": 25236870,
+      "THUMBNAIL": 1868460,
+      "FRAME": 14997442,
+      "METADATA": 5715
+    },
+    "storage_by_modality_mb": {
+      "VIDEO": 57.22,
+      "AUDIO": 24.07,
+      "THUMBNAIL": 1.78,
+      "FRAME": 14.3,
+      "METADATA": 0.01
+    }
+  },
+  "embedding_readiness": {
+    "visual_embeddings_computed": false,
+    "audio_embeddings_computed": false,
+    "note": "Phase 12A establishes asset alignment and integrity. Embedding extraction occurs in Phase 12B."
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "experiment_id": "EXP_MICROLENS_ANN_RETRIEVAL_V1",
+  "timestamp": "2026-10-10T04:19:13.741109+00:00",
+  "checkpoint": "data/checkpoints/EXP_MICROLENS_TEXT_COENGAGEMENT_V2/best.pt",
+  "database": {
+    "engine": "PostgreSQL",
+    "version": "16.15",
+    "extension": "pgvector 0.8.7",
+    "index_type": "HNSW (hierarchical navigable small world)",
+    "distance_metric": "cosine (<=>)",
+    "ef_search": 40,
+    "catalog_size": 2960,
+    "embedding_dimension": 512
+  },
+  "benchmark_setup": {
+    "num_queries": 300,
+    "warmup_queries": 15,
+    "query_types": {
+      "item_seed_queries": 240,
+      "user_profile_queries": 60
+    }
+  },
+  "ann_agreement_vs_exact": {
+    "Recall@1": 1.0,
+    "Recall@5": 1.0,
+    "Recall@10": 0.9987,
+    "Recall@50": 0.7733,
+    "Jaccard@10": 0.9976
+  },
+  "latency_ms": {
+    "exact_search": {
+      "mean": 506.272,
+      "p50": 480.933,
+      "p95": 647.83,
+      "p99": 672.759
+    },
+    "ann_hnsw_search": {
+      "mean": 49.507,
+      "p50": 48.532,
+      "p95": 57.098,
+      "p99": 60.933
+    },
+    "speedup_factor": 10.23
+  },
+  "throughput_qps": {
+    "exact_search": 2.0,
+    "ann_hnsw_search": 20.2
+  }
+}

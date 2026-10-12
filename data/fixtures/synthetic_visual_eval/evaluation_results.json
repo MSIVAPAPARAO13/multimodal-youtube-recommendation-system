@@ -1,0 +1,23 @@
+{
+  "dataset_size": 15,
+  "categories": [
+    "programming",
+    "cybersecurity",
+    "machine_learning",
+    "web_development",
+    "cloud_computing"
+  ],
+  "sanity_checks": {
+    "dim_512_passed": true,
+    "l2_norm_passed": true,
+    "deterministic_passed": true,
+    "no_nan_passed": true
+  },
+  "retrieval_metrics": {
+    "precision_at_1": 1.0,
+    "precision_at_3": 0.6667,
+    "recall_at_3": 1.0,
+    "mrr": 1.0,
+    "map": 1.0
+  }
+}

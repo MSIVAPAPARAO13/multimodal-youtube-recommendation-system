@@ -1,0 +1,175 @@
+{
+  "timestamp": "2026-10-09T10:31:04.255362+00:00",
+  "validation_baselines": {
+    "raw_bert": {
+      "valid_queries": 199,
+      "MRR": 0.023632504383529228,
+      "Recall@1": 0.01507537688442211,
+      "Precision@1": 0.01507537688442211,
+      "NDCG@1": 0.01507537688442211,
+      "Recall@5": 0.035175879396984924,
+      "Precision@5": 0.007035175879396985,
+      "NDCG@5": 0.02351197226861669,
+      "Recall@10": 0.04020100502512563,
+      "Precision@10": 0.004020100502512563,
+      "NDCG@10": 0.02530195813348112
+    },
+    "untrained_2layer_mlp": {
+      "valid_queries": 199,
+      "MRR": 0.011976394062818972,
+      "Recall@1": 0.0,
+      "Precision@1": 0.0,
+      "NDCG@1": 0.0,
+      "Recall@5": 0.02512562814070352,
+      "Precision@5": 0.005025125628140704,
+      "NDCG@5": 0.012524034521197203,
+      "Recall@10": 0.03015075376884422,
+      "Precision@10": 0.0030150753768844224,
+      "NDCG@10": 0.01403674806724736
+    },
+    "untrained_linear": {
+      "valid_queries": 199,
+      "MRR": 0.024419541665256943,
+      "Recall@1": 0.01507537688442211,
+      "Precision@1": 0.01507537688442211,
+      "NDCG@1": 0.01507537688442211,
+      "Recall@5": 0.035175879396984924,
+      "Precision@5": 0.007035175879396985,
+      "NDCG@5": 0.024518269733431082,
+      "Recall@10": 0.04020100502512563,
+      "Precision@10": 0.004020100502512563,
+      "NDCG@10": 0.026308255598295516
+    }
+  },
+  "grid_results": {
+    "mlp_lr1e4_t007": {
+      "best_epoch": 5,
+      "best_val_loss": 3.779651165008545,
+      "val_metrics": {
+        "epoch": 5,
+        "train_loss": 3.747740489465219,
+        "val_loss": 3.779651165008545,
+        "val_mrr": 0.029571119556320295,
+        "val_recall1": 0.01507537688442211,
+        "val_recall5": 0.05025125628140704,
+        "val_ndcg10": 0.03344053257049754
+      },
+      "architecture": "TextProjectionModel",
+      "lr": 0.0001,
+      "temperature": 0.07
+    },
+    "mlp_lr3e5_t007": {
+      "best_epoch": 5,
+      "best_val_loss": 3.599612921476364,
+      "val_metrics": {
+        "epoch": 5,
+        "train_loss": 3.985026792243675,
+        "val_loss": 3.599612921476364,
+        "val_mrr": 0.02357024008338669,
+        "val_recall1": 0.010050251256281407,
+        "val_recall5": 0.04020100502512563,
+        "val_ndcg10": 0.029147652015736256
+      },
+      "architecture": "TextProjectionModel",
+      "lr": 3e-05,
+      "temperature": 0.07
+    },
+    "mlp_lr5e5_t005": {
+      "best_epoch": 5,
+      "best_val_loss": 3.6044310927391052,
+      "val_metrics": {
+        "epoch": 5,
+        "train_loss": 3.933732368327953,
+        "val_loss": 3.6044310927391052,
+        "val_mrr": 0.02635105723578757,
+        "val_recall1": 0.01507537688442211,
+        "val_recall5": 0.04522613065326633,
+        "val_ndcg10": 0.03106648322180388
+      },
+      "architecture": "TextProjectionModel",
+      "lr": 5e-05,
+      "temperature": 0.05
+    },
+    "linear_lr1e4_t007": {
+      "best_epoch": 5,
+      "best_val_loss": 3.8122007250785828,
+      "val_metrics": {
+        "epoch": 5,
+        "train_loss": 3.7408234278361,
+        "val_loss": 3.8122007250785828,
+        "val_mrr": 0.029340636418346288,
+        "val_recall1": 0.01507537688442211,
+        "val_recall5": 0.04522613065326633,
+        "val_ndcg10": 0.0319019600845541
+      },
+      "architecture": "LinearProjectionModel",
+      "lr": 0.0001,
+      "temperature": 0.07
+    },
+    "linear_lr3e4_t007": {
+      "best_epoch": 5,
+      "best_val_loss": 4.510377883911133,
+      "val_metrics": {
+        "epoch": 5,
+        "train_loss": 3.206310921245151,
+        "val_loss": 4.510377883911133,
+        "val_mrr": 0.03346698988610975,
+        "val_recall1": 0.020100502512562814,
+        "val_recall5": 0.04522613065326633,
+        "val_ndcg10": 0.03565141453108235
+      },
+      "architecture": "LinearProjectionModel",
+      "lr": 0.0003,
+      "temperature": 0.07
+    },
+    "linear_lr1e3_t007": {
+      "best_epoch": 5,
+      "best_val_loss": 5.523594558238983,
+      "val_metrics": {
+        "epoch": 5,
+        "train_loss": 2.4677115458029286,
+        "val_loss": 5.523594558238983,
+        "val_mrr": 0.03208325883921043,
+        "val_recall1": 0.020100502512562814,
+        "val_recall5": 0.04020100502512563,
+        "val_ndcg10": 0.03169722485680388
+      },
+      "architecture": "LinearProjectionModel",
+      "lr": 0.001,
+      "temperature": 0.07
+    },
+    "residual_lr1e4_t007": {
+      "best_epoch": 5,
+      "best_val_loss": 3.922946333885193,
+      "val_metrics": {
+        "epoch": 5,
+        "train_loss": 3.63681991453524,
+        "val_loss": 3.922946333885193,
+        "val_mrr": 0.0297776109195907,
+        "val_recall1": 0.01507537688442211,
+        "val_recall5": 0.04522613065326633,
+        "val_ndcg10": 0.0319019600845541
+      },
+      "architecture": "ResidualProjectionModel",
+      "lr": 0.0001,
+      "temperature": 0.07
+    },
+    "residual_lr3e5_t007": {
+      "best_epoch": 3,
+      "best_val_loss": 3.617370843887329,
+      "val_metrics": {
+        "epoch": 3,
+        "train_loss": 3.9895730989950673,
+        "val_loss": 3.617370843887329,
+        "val_mrr": 0.02624135408139919,
+        "val_recall1": 0.01507537688442211,
+        "val_recall5": 0.035175879396984924,
+        "val_ndcg10": 0.029798867725984182
+      },
+      "architecture": "ResidualProjectionModel",
+      "lr": 3e-05,
+      "temperature": 0.07
+    }
+  },
+  "selected_candidate": "linear_lr3e4_t007"
+}
